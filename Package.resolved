@@ -1,0 +1,25 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "Kwift",
+        "repositoryURL": "https://github.com/kojirou1994/Kwift",
+        "state": {
+          "branch": null,
+          "revision": "a7a5c73c0535f0dab4380d959ea055ec34d5f204",
+          "version": "0.0.5"
+        }
+      },
+      {
+        "package": "NonEmpty",
+        "repositoryURL": "https://github.com/pointfreeco/swift-nonempty.git",
+        "state": {
+          "branch": null,
+          "revision": "bcf639e8ec6c20b6b7b28ed9bfa0fe83450c3248",
+          "version": "0.1.2"
+        }
+      }
+    ]
+  },
+  "version": 1
+}

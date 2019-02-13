@@ -31,12 +31,10 @@ extension NonEmpty where Element == MetadataBlock {
 
 public struct Metaflac {
     
-    public private(set) var blocks: NonEmptyArray<MetadataBlock>
+    public private(set) var blocks: NonEmptyArray<MetadataBlock> = .init(.padding(.init(count: 0)), [])
     
     /// "fLaC", the FLAC stream marker in ASCII, meaning byte 0 of the stream is 0x66, followed by 0x4C 0x61 0x43
-    static let flacHeader: [UInt8] = [0x66, 0x4c, 0x61, 0x43]
-    
-//    private let filepath: String
+    private static let flacHeader: [UInt8] = [0x66, 0x4c, 0x61, 0x43]
     
     private let input: Input
     
@@ -45,16 +43,15 @@ public struct Metaflac {
         case binary(Data)
     }
     
-    private var frameOffset: Int
-    
-//    var metaSizeOverflow: Bool {
-//        return frameOffset < (blocks.totalLength + 4 - blocks.paddingLength)
-//    }
+    private var frameOffset = 0
     
     public init(filepath: String) throws {
         input = .file(filepath)
-        frameOffset = 0
-        blocks = .init(.padding(.init(count: 0)), [])
+        try reload()
+    }
+    
+    public init(binary data: Data) throws {
+        input = .binary(data)
         try reload()
     }
     

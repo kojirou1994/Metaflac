@@ -23,7 +23,7 @@ public struct MetaflacWrapper {
         }
     }
     
-    public static func readTag(file: String, tagFile: String, exportPicture: String?) throws -> AudioSpec {
+    public static func exportTag(file: String, tagFile: String, exportPicture: String?) throws -> AudioSpec {
         let pipe = Pipe.init()
         var arguments: [String] = ["metaflac", "--no-utf8-convert",
                                    "--show-sample-rate", "--show-bps",
@@ -45,7 +45,7 @@ public struct MetaflacWrapper {
         return .init(sampleRate: comps[0], bps: comps[1])
     }
     
-    public static func writeTag(file: String, tagFile: String) throws {
+    public static func importTag(file: String, tagFile: String) throws {
         let p = try Process.run(["metaflac","--no-utf8-convert",
                                  "--remove-all-tags", "--import-tags-from=\(tagFile)",
                                  file], wait: true)
