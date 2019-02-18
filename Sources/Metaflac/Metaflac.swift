@@ -18,6 +18,27 @@ public enum MetaflacError: Error {
     case invalidPictureType(code: UInt32)
 }
 
+protocol ReadHandle {
+    func read(_ count: Int) -> Data
+    
+    var currentIndex: Int {get}
+}
+
+extension FileHandle: ReadHandle {
+    
+    func read(_ count: Int) -> Data {
+        return readData(ofLength: count)
+    }
+    
+    var currentIndex: Int {
+        return Int(offsetInFile)
+    }
+    
+}
+extension DataHandle: ReadHandle {
+    
+}
+
 extension NonEmpty where Element == MetadataBlock {
     
     var paddingLength: Int {
@@ -58,26 +79,25 @@ public struct Metaflac {
     public mutating func reload() throws {
         switch input {
         case .binary(let data):
-            try read(data: data)
+            try read(handle: DataHandle.init(data: data))
         case .file(let filepath):
-            let data = try Data.init(contentsOf: .init(fileURLWithPath: filepath), options: [.alwaysMapped])
-            try read(data: data)
+//            let data = try Data.init(contentsOf: .init(fileURLWithPath: filepath), options: [.alwaysMapped])
+            try read(handle: FileHandle.init(forReadingFrom: .init(fileURLWithPath: filepath)))
         }
     }
     
-    private mutating func read(data: Data) throws {
-        let reader = DataHandle.init(data: data)
+    private mutating func read(handle: ReadHandle) throws {
         
-        guard reader.read(4).elementsEqual(Metaflac.flacHeader) else {
+        guard handle.read(4).elementsEqual(Metaflac.flacHeader) else {
             throw MetaflacError.noFlacHeader
         }
         
         let streamInfo: MetadataBlock
-        let streamInfoBlockHeader = try MetadataBlockHeader.init(data: reader.read(32/8))
+        let streamInfoBlockHeader = try MetadataBlockHeader.init(data: handle.read(32/8))
         guard streamInfoBlockHeader.blockType == .streamInfo else {
             throw MetaflacError.noStreamInfo
         }
-        streamInfo = try .streamInfo(.init(reader.read(Int(streamInfoBlockHeader.length))))
+        streamInfo = try .streamInfo(.init(handle.read(Int(streamInfoBlockHeader.length))))
         
         if streamInfoBlockHeader.lastMetadataBlockFlag {
             // no other blocks
@@ -87,9 +107,9 @@ public struct Metaflac {
             
             var lastMeta = false
             while !lastMeta {
-                let blockHeader = try MetadataBlockHeader.init(data: reader.read(32/8))
+                let blockHeader = try MetadataBlockHeader.init(data: handle.read(32/8))
                 lastMeta = blockHeader.lastMetadataBlockFlag
-                let metadata = reader.read(Int(blockHeader.length))
+                let metadata = handle.read(Int(blockHeader.length))
                 let block: MetadataBlock
                 switch blockHeader.blockType {
                 case .streamInfo:
@@ -124,7 +144,7 @@ public struct Metaflac {
             }
             self.blocks = .init(streamInfo, otherBlocks)
         }
-        self.frameOffset = reader.currentIndex
+        self.frameOffset = handle.currentIndex
         precondition(frameOffset == (blocks.totalLength+4))
     }
     
