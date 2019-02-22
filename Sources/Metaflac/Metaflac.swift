@@ -81,7 +81,6 @@ public struct Metaflac {
         case .binary(let data):
             try read(handle: DataHandle.init(data: data))
         case .file(let filepath):
-//            let data = try Data.init(contentsOf: .init(fileURLWithPath: filepath), options: [.alwaysMapped])
             try read(handle: FileHandle.init(forReadingFrom: .init(fileURLWithPath: filepath)))
         }
     }
@@ -209,7 +208,7 @@ public struct Metaflac {
             try FileManager.default.moveItem(atPath: tempFilepath, toPath: filepath)
         } else {
             let fh = try FileHandle.init(forWritingTo: .init(fileURLWithPath: filepath))
-            print(fh.offsetInFile)
+//            print(fh.offsetInFile)
             fh.seek(toFileOffset: 4)
             fh.write(blocks: blocks)
             precondition(writeLength == fh.offsetInFile)
