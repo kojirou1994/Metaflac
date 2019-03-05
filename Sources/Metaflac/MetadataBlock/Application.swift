@@ -17,7 +17,7 @@ public struct Application: MetadataBlockData, Equatable {
     }
     
     public var length: Int {
-        return 32/8 + data.count
+        return 32/8 + applicationData.count
     }
     
     public let id: String

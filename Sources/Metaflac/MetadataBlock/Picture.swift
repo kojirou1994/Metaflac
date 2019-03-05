@@ -133,8 +133,8 @@ public struct Picture: MetadataBlockData, Equatable {
     }
     
     public var data: Data {
-        let capacity = length - pictureData.count
-        var result = Data.init(capacity: capacity)
+//        let capacity = length - pictureData.count
+        var result = Data.init(capacity: length)
         result.append(contentsOf: pictureType.rawValue.splited)
         result.append(contentsOf: UInt32(mimeType.utf8.count).splited)
         result.append(contentsOf: mimeType.data(using: .utf8)!)
@@ -145,7 +145,7 @@ public struct Picture: MetadataBlockData, Equatable {
         result.append(contentsOf: colorDepth.splited)
         result.append(contentsOf: numberOfColors.splited)
         result.append(contentsOf: UInt32(pictureData.count).splited)
-        precondition(capacity == result.count)
+//        precondition(capacity == result.count)
         result += pictureData
         return result
     }
