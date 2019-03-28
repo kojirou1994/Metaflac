@@ -1,6 +1,6 @@
 //
-//  Metaflac.swift
-//  Metaflac
+//  FlacMetadata.swift
+//  FlacMetadata
 //
 //  Created by Kojirou on 2019/2/1.
 //
@@ -18,31 +18,10 @@ public enum MetaflacError: Error {
     case invalidPictureType(code: UInt32)
 }
 
-protocol ReadHandle {
-    func read(_ count: Int) -> Data
-    
-    var currentIndex: Int {get}
-}
-
-extension FileHandle: ReadHandle {
-    
-    func read(_ count: Int) -> Data {
-        return readData(ofLength: count)
-    }
-    
-    var currentIndex: Int {
-        return Int(offsetInFile)
-    }
-    
-}
-extension DataHandle: ReadHandle {
-    
-}
-
 extension NonEmpty where Element == MetadataBlock {
     
     var paddingLength: Int {
-        return lazy.compactMap {$0.padding}.reduce(0, { $0 + $1.count + 4 })
+        return lazy.compactMap {$0.toPadding}.reduce(0, { $0 + $1.count + 4 })
     }
     
     var totalLength: Int {
@@ -50,7 +29,7 @@ extension NonEmpty where Element == MetadataBlock {
     }
 }
 
-public struct Metaflac {
+public struct FlacMetadata {
     
     public private(set) var blocks: NonEmptyArray<MetadataBlock> = .init(.padding(.init(count: 0)), [])
     
@@ -87,7 +66,7 @@ public struct Metaflac {
     
     private mutating func read(handle: ReadHandle) throws {
         
-        guard handle.read(4).elementsEqual(Metaflac.flacHeader) else {
+        guard handle.read(4).elementsEqual(FlacMetadata.flacHeader) else {
             throw MetaflacError.noFlacHeader
         }
         
@@ -191,7 +170,7 @@ public struct Metaflac {
     
     /// if the input is binary, it won't save
     ///
-    /// - Throws: <#throws value description#>
+    /// - Throws: NSError
     public func save() throws {
         guard case let Input.file(filepath) = input else {
             return
@@ -206,12 +185,14 @@ public struct Metaflac {
             try? FileManager.default.removeItem(atPath: tempFilepath)
             FileManager.default.createFile(atPath: tempFilepath, contents: nil, attributes: nil)
             let fh = try FileHandle.init(forWritingTo: .init(fileURLWithPath: tempFilepath))
-            fh.write(.init(Metaflac.flacHeader))
+            fh.write(.init(FlacMetadata.flacHeader))
             fh.write(blocks: blocks)
 //            fh.write(MetadataBlockHeader.init(lastMetadataBlockFlag: true, blockType: .padding, length: UInt32(newPaddingLength)).encode())
 //            fh.write(Padding.init(count: newPaddingLength).data)
             fh.write(block: .padding(Padding.init(count: newPaddingLength)), isLastMetadataBlock: true)
-            fh.write(try Data.init(contentsOf: .init(fileURLWithPath: filepath), options: [.alwaysMapped])[frameOffset...])
+            do {
+                fh.write(try Data.init(contentsOf: .init(fileURLWithPath: filepath), options: [.alwaysMapped])[frameOffset...])
+            }
             fh.closeFile()
             try FileManager.default.removeItem(atPath: filepath)
             try FileManager.default.moveItem(atPath: tempFilepath, toPath: filepath)

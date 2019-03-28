@@ -20,6 +20,7 @@ public struct Application: MetadataBlockData, Equatable {
         return 32/8 + applicationData.count
     }
     
+    /// Registered application ID. (Visit the registration page to register an ID with FLAC.)
     public let id: String
     
     public let applicationData: Data
@@ -31,9 +32,16 @@ public struct Application: MetadataBlockData, Equatable {
         try reader.check()
     }
     
+    public init(id: String, applicationData: Data) {
+        precondition(id.utf8.count == 4)
+        self.id = id
+        self.applicationData = applicationData
+    }
+    
     public var description: String {
         return """
-        application ???
+        id: \(id)
+        application data: \(applicationData)
         """
     }
     

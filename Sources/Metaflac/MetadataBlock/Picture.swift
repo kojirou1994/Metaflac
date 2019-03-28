@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KwiftUtility
 
 /// This block is for storing pictures associated with the file, most commonly cover art from CDs. There may be more than one PICTURE block in a file. The picture format is similar to the APIC frame in ID3v2. The PICTURE block has a type, MIME type, and UTF-8 description like ID3v2, and supports external linking via URL (though this is discouraged). The differences are that there is no uniqueness constraint on the description field, and the MIME type is mandatory. The FLAC PICTURE block also includes the resolution, color depth, and palette size so that the client can search for a suitable picture without having to scan them all.
 public struct Picture: MetadataBlockData, Equatable {
@@ -103,14 +104,42 @@ public struct Picture: MetadataBlockData, Equatable {
         }
     }
     
-    let pictureType: PictureType
-    let mimeType: String
-    let descriptionString: String
-    let width: UInt32
-    let height: UInt32
-    let colorDepth: UInt32
-    let numberOfColors: UInt32
-    let pictureData: Data
+    public let pictureType: PictureType
+    public let mimeType: String
+    public let descriptionString: String
+    public let width: UInt32
+    public let height: UInt32
+    public let colorDepth: UInt32
+    public let numberOfColors: UInt32
+    public let pictureData: Data
+    
+    public init(pictureType: PictureType, mimeType: String, description: String,
+                width: UInt32, height: UInt32, colorDepth: UInt32, numberOfColors: UInt32,
+                pictureData: Data) {
+        self.pictureType = pictureType
+        self.mimeType = mimeType
+        self.descriptionString = description
+        self.width = width
+        self.height = height
+        self.colorDepth = colorDepth
+        self.numberOfColors = numberOfColors
+        self.pictureData = pictureData
+    }
+    
+    public init?(file: URL) {
+        guard let pictureData = try? Data.init(contentsOf: file),
+              let imageInfo = ImageInfo.init(data: pictureData) else {
+            return nil
+        }
+        self.pictureType = .coverFront
+        self.mimeType = imageInfo.format.mimeType
+        self.descriptionString = ""
+        self.width = imageInfo.width
+        self.height = imageInfo.height
+        self.colorDepth = UInt32(imageInfo.depth)
+        self.numberOfColors = imageInfo.colors
+        self.pictureData = pictureData
+    }
     
     public init(_ data: Data) throws {
         let reader = DataHandle.init(data: data)

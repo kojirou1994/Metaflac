@@ -9,13 +9,14 @@ import Foundation
 
 public protocol MetadataBlockData: LosslessDataConvertible, CustomStringConvertible {
     
-    /// in bytes
+    /// length in bytes
     var length: Int { get }
     
 }
 
 extension MetadataBlockData {
     
+    /// length in bytes, including the header
     var totalLength: Int {
         return length + 4
     }

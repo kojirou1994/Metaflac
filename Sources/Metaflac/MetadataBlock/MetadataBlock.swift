@@ -51,28 +51,28 @@ public enum MetadataBlock {
         return .init(lastMetadataBlockFlag: lastMetadataBlockFlag, blockType: blockType, length: UInt32(length))
     }
     
-    var padding: Padding? {
+    var toPadding: Padding? {
         switch self {
         case .padding(let v): return v
         default: return nil
         }
     }
     
-    var picture: Picture? {
+    var toPicture: Picture? {
         switch self {
         case .picture(let v): return v
         default: return nil
         }
     }
     
-    var vorbisComment: VorbisComment? {
+    var toVorbisComment: VorbisComment? {
         switch self {
         case .vorbisComment(let v): return v
         default: return nil
         }
     }
     
-    var streamInfo: StreamInfo? {
+    var toStreamInfo: StreamInfo? {
         switch self {
         case .streamInfo(let v): return v
         default: return nil
@@ -80,6 +80,4 @@ public enum MetadataBlock {
     }
 }
 
-extension MetadataBlock: Equatable {
-    
-}
+extension MetadataBlock: Equatable { }

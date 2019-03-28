@@ -3,27 +3,27 @@ import XCTest
 
 final class MetaflacTests: XCTestCase {
     
-    var metaflac: Metaflac!
+    var metaflac: FlacMetadata!
 
     let file = "/Users/kojirou/Projects/Metaflac/Examples/file.flac"
     
     override func setUp() {
         super.setUp()
-        metaflac = try! Metaflac.init(filepath: file)
+        metaflac = try! .init(filepath: file)
     }
 
     func testEncodeMetadataBlockData() {
         let streamInfo = metaflac.streamInfo
         print(streamInfo)
-        let encoded = streamInfo.encode()
-        let decoded = try! StreamInfo.init(data: encoded)
+        let encoded = streamInfo.data
+        let decoded = try! StreamInfo.init(encoded)
         XCTAssertEqual(streamInfo, decoded)
     }
     
     func testEncodePadding() {
         let padding = Padding.init(count: 1024)
-        let encoded = padding.encode()
-        let decoded = Padding.init(data: encoded)
+        let encoded = padding.data
+        let decoded = Padding.init(encoded)
         XCTAssertEqual(padding, decoded)
     }
     
@@ -42,8 +42,8 @@ final class MetaflacTests: XCTestCase {
         metaflac.blocks.forEach { (block) in
             switch block {
             case .seekTable(let s):
-                let encoded = s.encode()
-                let decoded = try! SeekTable.init(data: encoded)
+                let encoded = s.data
+                let decoded = try! SeekTable.init(encoded)
                 XCTAssertEqual(s, decoded)
             default:
                 break
@@ -55,8 +55,8 @@ final class MetaflacTests: XCTestCase {
         metaflac.blocks.forEach { (block) in
             switch block {
             case .vorbisComment(let v):
-                let encoded = v.encode()
-                let decoded = try! VorbisComment.init(data: encoded)
+                let encoded = v.data
+                let decoded = try! VorbisComment.init(encoded)
                 XCTAssertEqual(v, decoded)
             default:
                 break
@@ -65,8 +65,8 @@ final class MetaflacTests: XCTestCase {
         let my = VorbisComment.init(vendorString: "metaflac in swift", userComments: [
             "haha=1", "bb=2"
             ])
-        let encoded = my.encode()
-        let decoded = try! VorbisComment.init(data: encoded)
+        let encoded = my.data
+        let decoded = try! VorbisComment.init(encoded)
         XCTAssertEqual(my, decoded)
     }
     
@@ -75,8 +75,8 @@ final class MetaflacTests: XCTestCase {
             switch block {
             case .picture(let v):
                 print("testing picture")
-                let encoded = v.encode()
-                let decoded = try! Picture.init(data: encoded)
+                let encoded = v.data
+                let decoded = try! Picture.init(encoded)
                 XCTAssertEqual(v, decoded)
             default:
                 break
@@ -85,12 +85,23 @@ final class MetaflacTests: XCTestCase {
     }
     
     func testRecalculateSize() {
-        print(MemoryLayout<StreamInfo>.size)
+        print(MemoryLayout<FlacMetadata>.size)
     }
     
     func testSave() {
         metaflac.vorbisComment = .init(vendorString: "reference libFLAC 1.3.2 20170101", userComments: ["KEY=VALUE"])
         try! metaflac.save()
+    }
+    
+    func testAddLength() {
+        metaflac.append(Application.init(id: "ABCD", applicationData: Data.init(repeating: 0, count: 10_000_000)))
+        try! metaflac.save()
+    }
+    
+    func testAddPicture() {
+        metaflac.append(Metaflac.Picture.init(file: .init(fileURLWithPath: "/Users/kojirou/Projects/Metaflac/Examples/cover.jpg"))!)
+        try! metaflac.save()
+        
     }
     
     static var allTests = [

@@ -7,8 +7,28 @@
 
 import Foundation
 @_exported import KwiftUtility
-@_exported import Executable
 @_exported import SwiftEnhancement
+
+protocol ReadHandle {
+    func read(_ count: Int) -> Data
+    
+    var currentIndex: Int {get}
+}
+
+extension FileHandle: ReadHandle {
+    
+    func read(_ count: Int) -> Data {
+        return readData(ofLength: count)
+    }
+    
+    var currentIndex: Int {
+        return Int(offsetInFile)
+    }
+    
+}
+extension DataHandle: ReadHandle {
+    
+}
 
 extension DataHandle {
     

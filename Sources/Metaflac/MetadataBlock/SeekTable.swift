@@ -16,11 +16,19 @@ public struct SeekTable: MetadataBlockData, Equatable {
         \(seekPoints.enumerated().map {"point \($0.offset): \($0.element)"}.joined(separator: "\n"))
         """
     }
+    
+    /// One or more seek points.
     public let seekPoints: [SeekPoint]
     
     public struct SeekPoint: CustomStringConvertible, Equatable {
+        
+        /// Sample number of first sample in the target frame, or 0xFFFFFFFFFFFFFFFF for a placeholder point.
         public let sampleNumber: UInt64
+        
+        /// Offset (in bytes) from the first byte of the first frame header to the first byte of the target frame's header.
         public let offset: UInt64
+        
+        /// Number of samples in the target frame.
         public let frameSample: UInt16
         
         public var description: String {

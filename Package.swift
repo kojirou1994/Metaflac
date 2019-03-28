@@ -10,15 +10,19 @@ let package = Package(
             targets: ["Metaflac"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/kojirou1994/Kwift", from: "0.1.1"),
+        .package(url: "https://github.com/kojirou1994/Kwift", from: "0.1.3"),
         .package(url: "https://github.com/pointfreeco/swift-nonempty.git", from: "0.1.2")
     ],
     targets: [
         .target(
             name: "Metaflac",
             dependencies: [
-                "Executable", "KwiftUtility", "SwiftEnhancement",
+                "KwiftUtility", "SwiftEnhancement",
                 "NonEmpty"]),
+        .target(
+            name: "MetaflacWrapper",
+            dependencies: [
+                "Executable", "Metaflac"]),
         .target(
             name: "Metaflac-Demo",
             dependencies: ["Metaflac"]),

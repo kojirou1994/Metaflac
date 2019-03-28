@@ -20,7 +20,7 @@ public struct Padding: MetadataBlockData, Equatable {
     
     public var description: String {
         return """
-        zero count: \(count) bytes
+        zero padding count: \(count) bytes
         """
     }
     public let count: Int

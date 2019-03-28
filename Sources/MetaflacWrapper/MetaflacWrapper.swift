@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import Metaflac
+@_exported import Executable
 
 public struct AudioSpec {
     public let sampleRate: Int
@@ -64,7 +66,7 @@ public struct MetaflacWrapper {
     }
     
     public static func importPicture(file: String, picture: String,
-                                     pictureType: Picture.PictureType = .coverFront) throws {
+                                     pictureType: Metaflac.Picture.PictureType = .coverFront) throws {
         let p = try Process.run(["metaflac",
                                   "--import-picture-from=\(pictureType.rawValue)||||\(picture)",
                                   file],
