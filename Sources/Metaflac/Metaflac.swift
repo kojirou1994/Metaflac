@@ -142,6 +142,12 @@ public struct FlacMetadata {
         blocks.append(.picture(picture))
     }
     
+    public mutating func removeBlocks(of types: BlockType...) {
+        let newTail = blocks.tail.filter {!types.contains($0.blockType)}
+        let head = blocks.head
+        self.blocks = .init(head, newTail)
+    }
+    
     public var vorbisComment: VorbisComment? {
         get {
             for block in blocks {
