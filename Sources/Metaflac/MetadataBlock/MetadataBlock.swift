@@ -14,7 +14,7 @@ public enum MetadataBlock {
     case cueSheet(CueSheet)
     case picture(Picture)
     
-    var blockType: BlockType {
+    public var blockType: BlockType {
         switch self {
         case .application(_): return .application
         case .cueSheet(_): return .cueSheet
@@ -26,15 +26,15 @@ public enum MetadataBlock {
         }
     }
     
-    var length: Int {
+    public var length: Int {
         return value.length
     }
     
-    var totalLength: Int {
+    public var totalLength: Int {
         return value.totalLength
     }
     
-    var value: MetadataBlockData {
+    public var value: MetadataBlockData {
         switch self {
         case .application(let v): return v
         case .cueSheet(let v): return v

@@ -6,13 +6,7 @@
 //
 
 import Foundation
-import Metaflac
 @_exported import Executable
-
-public struct AudioSpec {
-    public let sampleRate: Int
-    public let bps: Int
-}
 
 /// A wrapper for metaflac cli.
 public struct MetaflacWrapper {
@@ -25,7 +19,15 @@ public struct MetaflacWrapper {
         }
     }
     
-    public static func exportTag(file: String, tagFile: String, exportPicture: String?) throws -> AudioSpec {
+    ///
+    ///
+    /// - Parameters:
+    ///   - file:
+    ///   - tagFile:
+    ///   - exportPicture:
+    /// - Returns: (sample-rate, bps)
+    /// - Throws:
+    public static func exportTag(file: String, tagFile: String, exportPicture: String?) throws -> (Int, Int) {
         let pipe = Pipe.init()
         var arguments: [String] = ["metaflac", "--no-utf8-convert",
                                    "--show-sample-rate", "--show-bps",
@@ -44,7 +46,7 @@ public struct MetaflacWrapper {
 //            throw ExitError.init(terminationStatus: p.terminationStatus)
         }
         let comps = String.init(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).components(separatedBy: "\n").filter({!$0.isEmpty}).map({ Int($0)! })
-        return .init(sampleRate: comps[0], bps: comps[1])
+        return (comps[0], comps[1])
     }
     
     public static func importTag(file: String, tagFile: String) throws {
@@ -56,7 +58,7 @@ public struct MetaflacWrapper {
         }
     }
     
-    public static func removeBlock(file: String, type: BlockType) throws {
+    public static func removeBlock(file: String, type: String) throws {
         let p = try Process.run(["metaflac",
                                  "--remove", "--block-type=\(type)", file],
                                 wait: true)
@@ -66,9 +68,9 @@ public struct MetaflacWrapper {
     }
     
     public static func importPicture(file: String, picture: String,
-                                     pictureType: Metaflac.Picture.PictureType = .coverFront) throws {
+                                     pictureType: UInt32) throws {
         let p = try Process.run(["metaflac",
-                                  "--import-picture-from=\(pictureType.rawValue)||||\(picture)",
+                                  "--import-picture-from=\(pictureType)||||\(picture)",
                                   file],
                                  wait: true)
         if p.terminationStatus != 0 {

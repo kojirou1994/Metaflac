@@ -127,7 +127,7 @@ public struct FlacMetadata {
     }
     
     public var streamInfo: StreamInfo {
-        if case let MetadataBlock.streamInfo(s) = blocks.first {
+        if case let MetadataBlock.streamInfo(s) = blocks.head {
             return s
         } else {
             fatalError("Missing stream info block")
@@ -186,15 +186,14 @@ public struct FlacMetadata {
         let paddingLength = frameOffset - writeLength
         if frameOffset < writeLength || paddingLength < 4 {
             // MARK: create a new file
-            let tempFilepath = filepath.appendingPathExtension("metaflac_edit")
+            let tempFilepath = UUID.init().uuidString.appendingPathExtension("flac")
+//                filepath.appendingPathExtension("metaflac_edit")
             let newPaddingLength = 4000
             try? FileManager.default.removeItem(atPath: tempFilepath)
             FileManager.default.createFile(atPath: tempFilepath, contents: nil, attributes: nil)
             let fh = try FileHandle.init(forWritingTo: .init(fileURLWithPath: tempFilepath))
             fh.write(.init(FlacMetadata.flacHeader))
             fh.write(blocks: blocks)
-//            fh.write(MetadataBlockHeader.init(lastMetadataBlockFlag: true, blockType: .padding, length: UInt32(newPaddingLength)).encode())
-//            fh.write(Padding.init(count: newPaddingLength).data)
             fh.write(block: .padding(Padding.init(count: newPaddingLength)), isLastMetadataBlock: true)
             do {
                 fh.write(try Data.init(contentsOf: .init(fileURLWithPath: filepath), options: [.alwaysMapped])[frameOffset...])
@@ -208,8 +207,6 @@ public struct FlacMetadata {
             fh.seek(toFileOffset: 4)
             fh.write(blocks: blocks)
             precondition(writeLength == fh.offsetInFile)
-//            fh.write(MetadataBlockHeader.init(lastMetadataBlockFlag: true, blockType: .padding, length: UInt32(paddingLength - 4)).encode())
-//            fh.write(Padding.init(count: paddingLength - 4).data)
             fh.write(block: .padding(Padding.init(count: paddingLength - 4)), isLastMetadataBlock: true)
             fh.closeFile()
         }
@@ -220,7 +217,6 @@ public struct FlacMetadata {
 private extension FileHandle {
     
     func write(blocks: NonEmptyArray<MetadataBlock>) {
-//        let writeBlocks = blocks.filter { $0.blockType != .padding }
         for block in blocks {
             if block.blockType == .padding {
                 continue

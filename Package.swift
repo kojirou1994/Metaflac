@@ -5,13 +5,18 @@ import PackageDescription
 let package = Package(
     name: "Metaflac",
     products: [
+        // pure swift🦄️
         .library(
             name: "Metaflac",
             targets: ["Metaflac"]),
+        // use metaflac cli
+        .library(
+            name: "MetaflacWrapper",
+            targets: ["MetaflacWrapper"]),
     ],
     dependencies: [
         .package(url: "https://github.com/kojirou1994/Kwift", from: "0.1.3"),
-        .package(url: "https://github.com/pointfreeco/swift-nonempty.git", from: "0.1.2")
+        .package(url: "https://github.com/pointfreeco/swift-nonempty.git", from: "0.2.0")
     ],
     targets: [
         .target(
@@ -22,7 +27,7 @@ let package = Package(
         .target(
             name: "MetaflacWrapper",
             dependencies: [
-                "Executable", "Metaflac"]),
+                "Executable"]),
         .target(
             name: "Metaflac-Demo",
             dependencies: ["Metaflac"]),
