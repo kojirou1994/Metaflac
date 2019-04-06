@@ -15,7 +15,7 @@ let package = Package(
             targets: ["MetaflacWrapper"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/kojirou1994/Kwift", from: "0.1.3"),
+        .package(url: "https://github.com/kojirou1994/Kwift.git", .exact("0.1.5")),
         .package(url: "https://github.com/pointfreeco/swift-nonempty.git", from: "0.2.0")
     ],
     targets: [
