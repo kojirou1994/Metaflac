@@ -11,7 +11,7 @@ import Foundation
 public struct Application: MetadataBlockData, Equatable {
     
     public var data: Data {
-        var result = id.data(using: .utf8)!
+        var result = Data(id.utf8)
         result += applicationData
         return result
     }
