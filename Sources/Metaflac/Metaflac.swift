@@ -43,7 +43,7 @@ public struct FlacMetadata {
         case binary(Data)
     }
     
-    private var frameOffset = 0
+//    private var frameOffset = 0
     
     public init(filepath: String) throws {
         input = .file(filepath)
@@ -92,7 +92,6 @@ public struct FlacMetadata {
                 switch blockHeader.blockType {
                 case .streamInfo:
                     throw MetaflacError.extraBlock(.streamInfo)
-                //                    block = .streamInfo(try StreamInfo.init(data: metadata))
                 case .vorbisComment:
                     // There may be only one VORBIS_COMMENT block in a stream
                     if otherBlocks.contains(where: {$0.blockType == .vorbisComment}) {
@@ -122,8 +121,8 @@ public struct FlacMetadata {
             }
             self.blocks = .init(streamInfo, otherBlocks)
         }
-        self.frameOffset = handle.currentIndex
-        precondition(frameOffset == (blocks.totalLength+4))
+//        self.frameOffset = handle.currentIndex
+        precondition(handle.currentIndex == (blocks.totalLength+4))
     }
     
     public var streamInfo: StreamInfo {
@@ -174,41 +173,63 @@ public struct FlacMetadata {
         }
     }
     
-    /// if the input is binary, it won't save
+    private func findFrameOffset(handle: FileHandle) throws -> Int {
+//        handle.seek(toFileOffset: 0)
+        guard handle.read(4).elementsEqual(FlacMetadata.flacHeader) else {
+            throw MetaflacError.noFlacHeader
+        }
+        
+        let streamInfoBlockHeader = try MetadataBlockHeader.init(data: handle.read(32/8))
+        guard streamInfoBlockHeader.blockType == .streamInfo else {
+            throw MetaflacError.noStreamInfo
+        }
+        handle.skip(Int(streamInfoBlockHeader.length))
+        if streamInfoBlockHeader.lastMetadataBlockFlag {
+            // no other blocks
+        } else {
+            var lastMeta = false
+            while !lastMeta {
+                let blockHeader = try MetadataBlockHeader.init(data: handle.read(32/8))
+                lastMeta = blockHeader.lastMetadataBlockFlag
+                handle.skip(Int(blockHeader.length))
+            }
+        }
+        return handle.currentIndex
+    }
+    
+    /// if the input is binary input, it won't save
     ///
-    /// - Throws: NSError
-    public func save() throws {
-        guard case let Input.file(filepath) = input else {
+    /// - Throws: NSError from FileHandle
+    public func save(newPaddingLength: Int = 4000) throws {
+        guard case let Input.file(sourceFile) = input else {
             return
         }
         let blocks = self.blocks
         let writeLength = blocks.totalLength + 4 - blocks.paddingLength
+        let sourceFileHandle = try FileHandle.init(forUpdating: .init(fileURLWithPath: sourceFile))
+        let frameOffset = try findFrameOffset(handle: sourceFileHandle)
         let paddingLength = frameOffset - writeLength
         if frameOffset < writeLength || paddingLength < 4 {
             // MARK: create a new file
             let tempFilepath = UUID.init().uuidString.appendingPathExtension("flac")
 //                filepath.appendingPathExtension("metaflac_edit")
-            let newPaddingLength = 4000
             try? FileManager.default.removeItem(atPath: tempFilepath)
             FileManager.default.createFile(atPath: tempFilepath, contents: nil, attributes: nil)
             let fh = try FileHandle.init(forWritingTo: .init(fileURLWithPath: tempFilepath))
             fh.write(.init(FlacMetadata.flacHeader))
             fh.write(blocks: blocks)
             fh.write(block: .padding(Padding.init(count: newPaddingLength)), isLastMetadataBlock: true)
-            do {
-                fh.write(try Data.init(contentsOf: .init(fileURLWithPath: filepath), options: [.alwaysMapped])[frameOffset...])
-            }
+            fh.write(sourceFileHandle.readDataToEndOfFile())
             fh.closeFile()
-            try FileManager.default.removeItem(atPath: filepath)
-            try FileManager.default.moveItem(atPath: tempFilepath, toPath: filepath)
+            sourceFileHandle.closeFile()
+            try FileManager.default.removeItem(atPath: sourceFile)
+            try FileManager.default.moveItem(atPath: tempFilepath, toPath: sourceFile)
         } else {
-            let fh = try FileHandle.init(forWritingTo: .init(fileURLWithPath: filepath))
-//            print(fh.offsetInFile)
-            fh.seek(toFileOffset: 4)
-            fh.write(blocks: blocks)
-            precondition(writeLength == fh.offsetInFile)
-            fh.write(block: .padding(Padding.init(count: paddingLength - 4)), isLastMetadataBlock: true)
-            fh.closeFile()
+            sourceFileHandle.seek(toFileOffset: 4)
+            sourceFileHandle.write(blocks: blocks)
+            precondition(writeLength == sourceFileHandle.offsetInFile)
+            sourceFileHandle.write(block: .padding(Padding.init(count: paddingLength - 4)), isLastMetadataBlock: true)
+            sourceFileHandle.closeFile()
         }
     }
     
