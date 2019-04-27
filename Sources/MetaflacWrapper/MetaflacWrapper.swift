@@ -19,6 +19,11 @@ public struct MetaflacWrapper {
         }
     }
     
+    struct Metaflac: Executable {
+        static let executableName = "metaflac"
+        let arguments: [String]
+    }
+    
     ///
     ///
     /// - Parameters:
@@ -28,54 +33,35 @@ public struct MetaflacWrapper {
     /// - Returns: (sample-rate, bps)
     /// - Throws:
     public static func exportTag(file: String, tagFile: String, exportPicture: String?) throws -> (Int, Int) {
-        let pipe = Pipe.init()
-        var arguments: [String] = ["metaflac", "--no-utf8-convert",
+        var arguments: [String] = ["--no-utf8-convert",
                                    "--show-sample-rate", "--show-bps",
                                    "--export-tags-to=\(tagFile)"]
         if exportPicture != nil {
             arguments.append("--export-picture-to=\(exportPicture!)")
         }
         arguments.append(file)
-        let p = try Process.run(arguments,
-                                wait: true,
-                                prepare: {
-                                    p in
-            p.standardOutput = pipe
-        })
-        if p.terminationStatus != 0 {
-//            throw ExitError.init(terminationStatus: p.terminationStatus)
-        }
-        let comps = String.init(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).components(separatedBy: "\n").filter({!$0.isEmpty}).map({ Int($0)! })
+        
+        let metaflac = Metaflac(arguments: arguments)
+        let result = try metaflac.runAndCatch(checkNonZeroExitCode: false)
+        
+        let comps = String.init(decoding: result.stdout, as: UTF8.self).components(separatedBy: "\n").filter({!$0.isEmpty}).map({ Int($0)! })
         return (comps[0], comps[1])
     }
     
     public static func importTag(file: String, tagFile: String) throws {
-        let p = try Process.run(["metaflac","--no-utf8-convert",
+        try Metaflac(arguments: ["--no-utf8-convert",
                                  "--remove-all-tags", "--import-tags-from=\(tagFile)",
-                                 file], wait: true)
-        if p.terminationStatus != 0 {
-            throw ExitError.init(terminationStatus: p.terminationStatus)
-        }
+            file]).runAndWait(checkNonZeroExitCode: true)
     }
     
     public static func removeBlock(file: String, type: String) throws {
-        let p = try Process.run(["metaflac",
-                                 "--remove", "--block-type=\(type)", file],
-                                wait: true)
-        if p.terminationStatus != 0 {
-            throw ExitError.init(terminationStatus: p.terminationStatus)
-        }
+        try Metaflac(arguments: ["--remove", "--block-type=\(type)", file]).runAndWait(checkNonZeroExitCode: true)
     }
     
     public static func importPicture(file: String, picture: String,
                                      pictureType: UInt32) throws {
-        let p = try Process.run(["metaflac",
-                                  "--import-picture-from=\(pictureType)||||\(picture)",
-                                  file],
-                                 wait: true)
-        if p.terminationStatus != 0 {
-            throw ExitError.init(terminationStatus: p.terminationStatus)
-        }
+        try Metaflac(arguments: ["--import-picture-from=\(pictureType)||||\(picture)",
+            file]).runAndWait(checkNonZeroExitCode: true)
     }
     
 }
