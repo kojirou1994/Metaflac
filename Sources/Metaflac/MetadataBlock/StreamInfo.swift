@@ -10,40 +10,6 @@ import Foundation
 /// This block has information about the whole stream, like sample rate, number of channels, total number of samples, etc. It must be present as the first metadata block in the stream. Other metadata blocks may follow, and ones that the decoder doesn't understand, it will skip.
 public struct StreamInfo: MetadataBlockData, Equatable {
     
-    public var data: Data {
-        var result = Data.init(capacity: length)
-        result.append(contentsOf: minimumBlockSize.splited)
-        result.append(contentsOf: maximumBlockSize.splited)
-        result.append(contentsOf: minimumFrameSize.splited[1...])
-        result.append(contentsOf: maximumFrameSize.splited[1...])
-        var fourElements = UInt64.init()
-        fourElements |= sampleRate << 44
-        fourElements |= (numberOfChannels - 1) << 41
-        fourElements |= (bitsPerSampe - 1) << 36
-        fourElements |= totalSamples
-        result.append(contentsOf: fourElements.splited)
-        result.append(contentsOf: md5Signature)
-        return result
-    }
-    
-    public var length: Int {
-        return 34
-    }
-    
-    public var description: String {
-        return """
-        minimumBlockSize: \(minimumBlockSize) samples
-        maximumBlockSize: \(maximumBlockSize) samples
-        minimumFrameSize: \(minimumFrameSize) bytes
-        maximumFrameSize: \(maximumFrameSize) bytes
-        sample_rate: \(sampleRate) Hz
-        channels: \(numberOfChannels)
-        bits-per-sample: \(bitsPerSampe)
-        total samples: \(totalSamples)
-        MD5 signature: \(md5Signature.hexString(prefix: ""))
-        """
-    }
-    
     public let minimumBlockSize: UInt16
     public let maximumBlockSize: UInt16
     public let minimumFrameSize: UInt32
@@ -92,6 +58,40 @@ public struct StreamInfo: MetadataBlockData, Equatable {
         totalSamples = (fourElements << 28) >> 28
         md5Signature = reader.read(128/8)
         try reader.check()
+    }
+    
+    public var length: Int {
+        return 34
+    }
+    
+    public var data: Data {
+        var result = Data.init(capacity: length)
+        result.append(contentsOf: minimumBlockSize.splited)
+        result.append(contentsOf: maximumBlockSize.splited)
+        result.append(contentsOf: minimumFrameSize.splited[1...])
+        result.append(contentsOf: maximumFrameSize.splited[1...])
+        var fourElements = UInt64.init()
+        fourElements |= sampleRate << 44
+        fourElements |= (numberOfChannels - 1) << 41
+        fourElements |= (bitsPerSampe - 1) << 36
+        fourElements |= totalSamples
+        result.append(contentsOf: fourElements.splited)
+        result.append(contentsOf: md5Signature)
+        return result
+    }
+    
+    public var description: String {
+        return """
+        minimumBlockSize: \(minimumBlockSize) samples
+        maximumBlockSize: \(maximumBlockSize) samples
+        minimumFrameSize: \(minimumFrameSize) bytes
+        maximumFrameSize: \(maximumFrameSize) bytes
+        sample_rate: \(sampleRate) Hz
+        channels: \(numberOfChannels)
+        bits-per-sample: \(bitsPerSampe)
+        total samples: \(totalSamples)
+        MD5 signature: \(md5Signature.hexString(prefix: ""))
+        """
     }
     
 }

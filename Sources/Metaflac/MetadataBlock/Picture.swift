@@ -11,19 +11,6 @@ import KwiftUtility
 /// This block is for storing pictures associated with the file, most commonly cover art from CDs. There may be more than one PICTURE block in a file. The picture format is similar to the APIC frame in ID3v2. The PICTURE block has a type, MIME type, and UTF-8 description like ID3v2, and supports external linking via URL (though this is discouraged). The differences are that there is no uniqueness constraint on the description field, and the MIME type is mandatory. The FLAC PICTURE block also includes the resolution, color depth, and palette size so that the client can search for a suitable picture without having to scan them all.
 public struct Picture: MetadataBlockData, Equatable {
     
-    public var description: String {
-        return """
-        type: \(pictureType.rawValue) \(pictureType)
-        MIME type: \(mimeType)
-        description: \(descriptionString)
-        width: \(width)
-        height: \(height)
-        colorDepth: \(colorDepth)
-        colors: \(numberOfColors)
-        data length: \(pictureData.count)
-        """
-    }
-    
     public enum PictureType: UInt32, CustomStringConvertible {
         case other = 0
         case fileIcon
@@ -105,12 +92,19 @@ public struct Picture: MetadataBlockData, Equatable {
     }
     
     public let pictureType: PictureType
+    
     public let mimeType: String
+    
     public let descriptionString: String
+    
     public let width: UInt32
+    
     public let height: UInt32
+    
     public let colorDepth: UInt32
+    
     public let numberOfColors: UInt32
+    
     public let pictureData: Data
     
     public init(pictureType: PictureType, mimeType: String, description: String,
@@ -161,6 +155,10 @@ public struct Picture: MetadataBlockData, Equatable {
         try reader.check()
     }
     
+    public var length: Int {
+        return 32 + mimeType.utf8.count + descriptionString.utf8.count + pictureData.count
+    }
+    
     public var data: Data {
 //        let capacity = length - pictureData.count
         var result = Data.init(capacity: length)
@@ -179,7 +177,17 @@ public struct Picture: MetadataBlockData, Equatable {
         return result
     }
     
-    public var length: Int {
-        return 32 + mimeType.utf8.count + descriptionString.utf8.count + pictureData.count
+    public var description: String {
+        return """
+        type: \(pictureType.rawValue) \(pictureType)
+        MIME type: \(mimeType)
+        description: \(descriptionString)
+        width: \(width)
+        height: \(height)
+        colorDepth: \(colorDepth)
+        colors: \(numberOfColors)
+        data length: \(pictureData.count)
+        """
     }
+    
 }

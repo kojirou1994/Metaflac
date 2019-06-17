@@ -59,6 +59,10 @@ public struct SeekTable: MetadataBlockData, Equatable {
         self.seekPoints = seekPoints
     }
     
+    public var length: Int {
+        return seekPoints.count * 18
+    }
+    
     public var data: Data {
         var result = Data.init(capacity: length)
         for seekPoint in seekPoints {
@@ -69,7 +73,4 @@ public struct SeekTable: MetadataBlockData, Equatable {
         return result
     }
     
-    public var length: Int {
-        return seekPoints.count * 18
-    }
 }

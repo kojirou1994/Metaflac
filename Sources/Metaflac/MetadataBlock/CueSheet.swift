@@ -11,18 +11,8 @@ import Foundation
 /// This block is for storing various information that can be used in a cue sheet. It supports track and index points, compatible with Red Book CD digital audio discs, as well as other CD-DA metadata such as media catalog number and track ISRCs. The CUESHEET block is especially useful for backing up CD-DA discs, but it can be used as a general purpose cueing mechanism for playback.
 public struct CueSheet: MetadataBlockData, Equatable {
     
-    public var data: Data {
-        let d = Data.init(capacity: length)
-        #warning("TODO!")
-        return d
-    }
-    
-    public var length: Int {
-        return 128 + 8 + 1 + 258 + 1 + tracks.reduce(0, {$0 + 8 + 1 + 12 + 14 + 1 + $1.indexes.count * 12})
-    }
-    
     /// Media catalog number, in ASCII printable characters 0x20-0x7e. In general, the media catalog number may be 0 to 128 bytes long; any unused characters should be right-padded with NUL characters. For CD-DA, this is a thirteen digit number, followed by 115 NUL bytes.
-    public let mediaCatalogNumber: String
+    public let mediaCatalogNumber: Data
     
     /// The number of lead-in samples. This field has meaning only for CD-DA cuesheets; for other uses it should be 0. For CD-DA, the lead-in is the TRACK 00 area where the table of contents is stored; more precisely, it is the number of samples from the first sample of the media to the first sample of the first index point of the first track. According to the Red Book, the lead-in must be silence and CD grabbing software does not usually store it; additionally, the lead-in must be at least two seconds but may be longer. For these reasons the lead-in length is stored here so that the absolute position of the first track can be computed. Note that the lead-in stored here is the number of samples up to the first index point of the first track, not necessarily to INDEX 01 of the first track; even the first track may have INDEX 00 data.
     public let numberOfLeadinSamples: UInt64
@@ -36,9 +26,28 @@ public struct CueSheet: MetadataBlockData, Equatable {
     /// One or more tracks. A CUESHEET block is required to have a lead-out track; it is always the last track in the CUESHEET. For CD-DA, the lead-out track number must be 170 as specified by the Red Book, otherwise is must be 255.
     public let tracks: [Track]
     
+    public init(mediaCatalogNumber: String, numberOfLeadinSamples: UInt64,
+                compactDisc: Bool, trackNumber: UInt8, tracks: [Track]) {
+        precondition(mediaCatalogNumber.count <= 128)
+        precondition(mediaCatalogNumber.allSatisfy {$0.isASCII && (0x20...0x7e).contains($0.utf8.first!) })
+        var tempD = Data(capacity: 128)
+        tempD.append(contentsOf: mediaCatalogNumber.utf8)
+        let nullByte = 128 - tempD.count
+        if nullByte > 0 {
+            for _ in 1...nullByte {
+                tempD.append(0)
+            }
+        }
+        self.mediaCatalogNumber = tempD
+        self.numberOfLeadinSamples = numberOfLeadinSamples
+        self.compactDisc = compactDisc
+        self.trackNumber = trackNumber
+        self.tracks = tracks
+    }
+    
     public init(_ data: Data) throws {
         let reader = DataHandle.init(data: data)
-        mediaCatalogNumber = String.init(decoding: reader.read(128), as: UTF8.self)
+        mediaCatalogNumber = reader.read(128)
         numberOfLeadinSamples = reader.read(64/8).joined(UInt64.self)
         let flag = reader.readByte()
         compactDisc = (flag >> 7) == 1
@@ -53,7 +62,7 @@ public struct CueSheet: MetadataBlockData, Equatable {
             let trackISRC = Array(reader.read(12))
             let flag = reader.readByte()
             let isAudio = (flag >> 7) == 0
-            let preEmphasis = (flag & 0b00000000) == 1
+            let preEmphasis = (flag & 0b01000000) != 0
             // Reserved. All bits must be set to zero.
             reader.skip(13)
             let numberOfTrackIndexPoints = reader.readByte()
@@ -69,6 +78,43 @@ public struct CueSheet: MetadataBlockData, Equatable {
             tracks.append(.init(trackOffsetInSamples: trackOffsetInSamples, trackNumber: trackNumber, trackISRC: trackISRC, isAudio: isAudio, preEmphasis: preEmphasis, numberOfTrackIndexPoints: numberOfTrackIndexPoints, indexes: indexes))
         }
         self.tracks = tracks
+    }
+    
+    public var length: Int {
+        return 128 + 8 + 1 + 258 + 1 + tracks.reduce(0, {$0 + 8 + 1 + 12 + 14 + 1 + $1.indexes.count * 12})
+    }
+    
+    public var data: Data {
+        var result = Data.init(capacity: length)
+        result.append(mediaCatalogNumber)
+        result.append(contentsOf: numberOfLeadinSamples.splited)
+        let flag: UInt8 = compactDisc ? 0b10000000 : 0
+        result.append(flag)
+        for _ in 1...258 {
+            result.append(0)
+        }
+        result.append(trackNumber)
+        for track in tracks {
+            result.append(contentsOf: track.trackOffsetInSamples.splited)
+            result.append(track.trackNumber)
+            result.append(contentsOf: track.trackISRC)
+            var flag: UInt8 = track.isAudio ? 0 : 1
+            flag = flag << 7
+            flag = flag | (track.preEmphasis ? 0b01000000 : 0b00000000)
+            result.append(flag)
+            for _ in 1...13 {
+                result.append(0)
+            }
+            result.append(track.numberOfTrackIndexPoints)
+            for index in track.indexes {
+                result.append(contentsOf: index.offsetInSample.splited)
+                result.append(index.indexPointNumber)
+                for _ in 1...3 {
+                    result.append(0)
+                }
+            }
+        }
+        return result
     }
     
     public var description: String {
@@ -102,11 +148,28 @@ public struct CueSheet: MetadataBlockData, Equatable {
         public struct Index: Equatable {
             
             /// Offset in samples, relative to the track offset, of the index point. For CD-DA, the offset must be evenly divisible by 588 samples (588 samples = 44100 samples/sec * 1/75th of a sec). Note that the offset is from the beginning of the track, not the beginning of the audio data.
-            let offsetInSample: UInt64
+            public let offsetInSample: UInt64
             
             /// The index point number. For CD-DA, an index number of 0 corresponds to the track pre-gap. The first index in a track must have a number of 0 or 1, and subsequently, index numbers must increase by 1. Index numbers must be unique within a track.
-            let indexPointNumber: UInt8
+            public let indexPointNumber: UInt8
             
+            public init(offsetInSample: UInt64, indexPointNumber: UInt8) {
+                self.offsetInSample = offsetInSample
+                self.indexPointNumber = indexPointNumber
+            }
+            
+        }
+        
+        public init(trackOffsetInSamples: UInt64, trackNumber: UInt8, trackISRC: [UInt8],
+                    isAudio: Bool, preEmphasis: Bool, numberOfTrackIndexPoints: UInt8, indexes: [Index]) {
+            self.trackOffsetInSamples = trackOffsetInSamples
+            self.trackNumber = trackNumber
+            precondition(trackISRC.count == 12)
+            self.trackISRC = trackISRC
+            self.isAudio = isAudio
+            self.preEmphasis = preEmphasis
+            self.numberOfTrackIndexPoints = numberOfTrackIndexPoints
+            self.indexes = indexes
         }
     }
     
