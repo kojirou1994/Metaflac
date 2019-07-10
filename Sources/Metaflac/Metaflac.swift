@@ -1,10 +1,3 @@
-//
-//  FlacMetadata.swift
-//  FlacMetadata
-//
-//  Created by Kojirou on 2019/2/1.
-//
-
 import Foundation
 import NonEmpty
 
@@ -211,7 +204,7 @@ public struct FlacMetadata {
         let paddingLength = frameOffset - writeLength
         if frameOffset < writeLength || paddingLength < 4 {
             // MARK: create a new file
-            let tempFilepath = UUID.init().uuidString.appendingPathExtension("flac")
+            let tempFilepath = "\(UUID().uuidString).flac"
 //                filepath.appendingPathExtension("metaflac_edit")
             try? FileManager.default.removeItem(atPath: tempFilepath)
             FileManager.default.createFile(atPath: tempFilepath, contents: nil, attributes: nil)
