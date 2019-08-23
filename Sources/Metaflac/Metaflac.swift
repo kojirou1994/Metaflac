@@ -1,5 +1,6 @@
 import Foundation
 import NonEmpty
+import URLFileManager
 
 public enum MetaflacError: Error {
     case noFlacHeader
@@ -32,19 +33,24 @@ public struct FlacMetadata {
     private let input: Input
     
     private enum Input {
-        case file(String)
+        case file(URL)
         case binary(Data)
     }
     
-//    private var frameOffset = 0
+    public init(file: URL) throws {
+        try self.init(input: .file(file))
+    }
     
     public init(filepath: String) throws {
-        input = .file(filepath)
-        try reload()
+        try self.init(input: .file(URL(fileURLWithPath: filepath)))
     }
     
     public init(binary data: Data) throws {
-        input = .binary(data)
+        try self.init(input: .binary(data))
+    }
+    
+    private init(input: Input) throws {
+        self.input = input
         try reload()
     }
     
@@ -52,12 +58,12 @@ public struct FlacMetadata {
         switch input {
         case .binary(let data):
             try read(handle: DataHandle.init(data: data))
-        case .file(let filepath):
-            try read(handle: FileHandle.init(forReadingFrom: .init(fileURLWithPath: filepath)))
+        case .file(let url):
+            try read(handle: FileHandle.init(forReadingFrom: url))
         }
     }
     
-    private mutating func read(handle: ReadHandle) throws {
+    private mutating func read<H: ReadHandle>(handle: H) throws {
         
         guard handle.read(4).elementsEqual(FlacMetadata.flacHeader) else {
             throw MetaflacError.noFlacHeader
@@ -114,7 +120,6 @@ public struct FlacMetadata {
             }
             self.blocks = .init(streamInfo, otherBlocks)
         }
-//        self.frameOffset = handle.currentIndex
         precondition(handle.currentIndex == (blocks.totalLength+4))
     }
     
@@ -193,30 +198,33 @@ public struct FlacMetadata {
     /// if the input is binary input, it won't save
     ///
     /// - Throws: NSError from FileHandle
-    public func save(newPaddingLength: Int = 4000) throws {
+    public func save(newPaddingLength: Int = 4000, tempPath: URL? = nil) throws {
         guard case let Input.file(sourceFile) = input else {
             return
         }
         let blocks = self.blocks
         let writeLength = blocks.totalLength + 4 - blocks.paddingLength
-        let sourceFileHandle = try FileHandle.init(forUpdating: .init(fileURLWithPath: sourceFile))
+        let sourceFileHandle = try FileHandle.init(forUpdating: sourceFile)
         let frameOffset = try findFrameOffset(handle: sourceFileHandle)
         let paddingLength = frameOffset - writeLength
         if frameOffset < writeLength || paddingLength < 4 {
             // MARK: create a new file
-            let tempFilepath = "\(UUID().uuidString).flac"
+            let tempFilepath = (tempPath ?? sourceFile.deletingLastPathComponent())
+                .appendingPathComponent("\(UUID().uuidString).flac")
 //                filepath.appendingPathExtension("metaflac_edit")
-            try? FileManager.default.removeItem(atPath: tempFilepath)
-            FileManager.default.createFile(atPath: tempFilepath, contents: nil, attributes: nil)
-            let fh = try FileHandle.init(forWritingTo: .init(fileURLWithPath: tempFilepath))
-            fh.write(.init(FlacMetadata.flacHeader))
-            fh.write(blocks: blocks)
-            fh.write(block: .padding(Padding.init(count: newPaddingLength)), isLastMetadataBlock: true)
-            fh.write(sourceFileHandle.readDataToEndOfFile())
-            fh.closeFile()
+            if URLFileManager.default.fileExistance(at: tempFilepath).exists {
+                try URLFileManager.default.removeItem(at: tempFilepath)
+            }
+            _ = URLFileManager.default.createFile(at: tempFilepath)
+            
+            let tempFileHandle = try FileHandle.init(forWritingTo: tempFilepath)
+            tempFileHandle.write(.init(FlacMetadata.flacHeader))
+            tempFileHandle.write(blocks: blocks)
+            tempFileHandle.write(block: .padding(Padding.init(count: newPaddingLength)), isLastMetadataBlock: true)
+            tempFileHandle.write(sourceFileHandle.readDataToEndOfFile())
+            tempFileHandle.closeFile()
             sourceFileHandle.closeFile()
-            try FileManager.default.removeItem(atPath: sourceFile)
-            try FileManager.default.moveItem(atPath: tempFilepath, toPath: sourceFile)
+            _ = try URLFileManager.default.replaceItemAt(sourceFile, withItemAt: tempFilepath, options: .usingNewMetadataOnly)
         } else {
             sourceFileHandle.seek(toFileOffset: 4)
             sourceFileHandle.write(blocks: blocks)

@@ -16,6 +16,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/kojirou1994/Kwift.git", from: "0.2.0"),
+        .package(url: "https://github.com/kojirou1994/URLFileManager.git", .branch("master")),
         .package(url: "https://github.com/pointfreeco/swift-nonempty.git", from: "0.2.0")
     ],
     targets: [
@@ -23,6 +24,7 @@ let package = Package(
             name: "Metaflac",
             dependencies: [
                 "KwiftUtility", "SwiftEnhancement",
+                "URLFileManager",
                 "NonEmpty"]),
         .target(
             name: "MetaflacWrapper",
