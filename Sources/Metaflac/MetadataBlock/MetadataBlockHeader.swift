@@ -1,10 +1,3 @@
-//
-//  MetadataBlockHeader.swift
-//  Metaflac
-//
-//  Created by Kojirou on 2019/2/1.
-//
-
 import Foundation
 
 internal struct MetadataBlockHeader: CustomStringConvertible, Equatable {

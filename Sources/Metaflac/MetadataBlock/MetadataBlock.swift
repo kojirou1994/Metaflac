@@ -1,10 +1,3 @@
-//
-//  MetadataBlock.swift
-//  Metaflac
-//
-//  Created by Kojirou on 2019/2/1.
-//
-
 public enum MetadataBlock {
     case streamInfo(StreamInfo)
     case padding(Padding)

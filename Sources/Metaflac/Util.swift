@@ -1,6 +1,5 @@
 import Foundation
-@_exported import KwiftUtility
-@_exported import SwiftEnhancement
+@_exported import class KwiftUtility.DataHandle
 
 protocol ReadHandle {
     func read(_ count: Int) -> Data

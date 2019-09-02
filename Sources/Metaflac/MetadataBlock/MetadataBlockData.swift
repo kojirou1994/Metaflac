@@ -1,11 +1,5 @@
-//
-//  MetadataBlockData.swift
-//  Metaflac
-//
-//  Created by Kojirou on 2019/2/1.
-//
-
 import Foundation
+import protocol KwiftUtility.LosslessDataConvertible
 
 public protocol MetadataBlockData: LosslessDataConvertible, CustomStringConvertible {
     
