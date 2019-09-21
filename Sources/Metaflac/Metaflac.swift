@@ -1,5 +1,4 @@
 import Foundation
-import NonEmpty
 import URLFileManager
 
 public enum MetaflacError: Error {
@@ -10,22 +9,33 @@ public enum MetaflacError: Error {
     case unSupportedBlockType(BlockType)
     case extraDataInMetadataBlock(data: Data)
     case invalidPictureType(code: UInt32)
-}
-
-extension NonEmpty where Element == MetadataBlock {
-    
-    var paddingLength: Int {
-        return lazy.compactMap {$0.toPadding}.reduce(0, { $0 + $1.count + 4 })
-    }
-    
-    var totalLength: Int {
-        return reduce(0, {$0 + $1.totalLength})
-    }
+    case exceedMaxBlockLength
 }
 
 public struct FlacMetadata {
     
-    public private(set) var blocks: NonEmptyArray<MetadataBlock> = .init(.padding(.init(count: 0)), [])
+    public struct MetadataBlocks {
+        
+        public let streamInfo: StreamInfo
+        
+        public var otherBlocks: [MetadataBlock]
+        
+        internal var totalLength: Int {
+            otherBlocks.reduce(streamInfo.totalLength,
+                               {$0 + $1.totalLength})
+        }
+        
+        internal var totalNonPaddingLength: Int {
+            otherBlocks.reduce(streamInfo.totalLength,
+                               {$0 + ($1.blockType == .padding ? 0 : $1.totalLength)})
+        }
+        
+        var paddingLength: Int {
+            otherBlocks.reduce(0, { $0 + ($1.toPadding?.totalLength ?? 0) })
+        }
+    }
+    
+    public var blocks: MetadataBlocks
     
     /// "fLaC", the FLAC stream marker in ASCII, meaning byte 0 of the stream is 0x66, followed by 0x4C 0x61 0x43
     private static let flacHeader: [UInt8] = [0x66, 0x4c, 0x61, 0x43]
@@ -51,6 +61,7 @@ public struct FlacMetadata {
     
     private init(input: Input) throws {
         self.input = input
+        self.blocks = .init(streamInfo: StreamInfo(minimumBlockSize: 0, maximumBlockSize: 0, minimumFrameSize: 0, maximumFrameSize: 0, sampleRate: 0, numberOfChannels: 0, bitsPerSampe: 0, totalSamples: 0, md5Signature: .init(count: 16)), otherBlocks: [])
         try reload()
     }
     
@@ -59,7 +70,9 @@ public struct FlacMetadata {
         case .binary(let data):
             try read(handle: DataHandle.init(data: data))
         case .file(let url):
-            try read(handle: FileHandle.init(forReadingFrom: url))
+            try autoreleasepool {
+                try read(handle: FileHandle.init(forReadingFrom: url))
+            }
         }
     }
     
@@ -69,22 +82,22 @@ public struct FlacMetadata {
             throw MetaflacError.noFlacHeader
         }
         
-        let streamInfo: MetadataBlock
-        let streamInfoBlockHeader = try MetadataBlockHeader.init(data: handle.read(32/8))
+        let streamInfo: StreamInfo
+        let streamInfoBlockHeader = try MetadataBlockHeader.init(data: handle.read(4))
         guard streamInfoBlockHeader.blockType == .streamInfo else {
             throw MetaflacError.noStreamInfo
         }
-        streamInfo = try .streamInfo(.init(handle.read(Int(streamInfoBlockHeader.length))))
+        streamInfo = try .init(handle.read(Int(streamInfoBlockHeader.length)))
         
         if streamInfoBlockHeader.lastMetadataBlockFlag {
             // no other blocks
-            blocks = .init(streamInfo, [])
+            blocks = .init(streamInfo: streamInfo, otherBlocks: [])
         } else {
             var otherBlocks = [MetadataBlock]()
             
             var lastMeta = false
             while !lastMeta {
-                let blockHeader = try MetadataBlockHeader.init(data: handle.read(32/8))
+                let blockHeader = try MetadataBlockHeader.init(data: handle.read(4))
                 lastMeta = blockHeader.lastMetadataBlockFlag
                 let metadata = handle.read(Int(blockHeader.length))
                 let block: MetadataBlock
@@ -96,10 +109,10 @@ public struct FlacMetadata {
                     if otherBlocks.contains(where: {$0.blockType == .vorbisComment}) {
                         throw MetaflacError.extraBlock(.vorbisComment)
                     }
-                    block = .vorbisComment(try VorbisComment.init(metadata))
+                    block = .vorbisComment(try .init(metadata))
                     otherBlocks.append(block)
                 case .picture:
-                    block = .picture(try Picture.init(metadata))
+                    block = .picture(try .init(metadata))
                     otherBlocks.append(block)
                 case .padding:
                     otherBlocks.append(.padding(.init(metadata)))
@@ -107,47 +120,43 @@ public struct FlacMetadata {
                     if otherBlocks.contains(where: {$0.blockType == .seekTable}) {
                         throw MetaflacError.extraBlock(.seekTable)
                     }
-                    block = .seekTable(try SeekTable.init(metadata))
+                    block = .seekTable(try .init(metadata))
                     otherBlocks.append(block)
                 case .cueSheet:
                     throw MetaflacError.unSupportedBlockType(.cueSheet)
                 case .invalid:
-                    throw MetaflacError.unSupportedBlockType(blockHeader.blockType)
+                    throw MetaflacError.unSupportedBlockType(.invalid)
                 case .application:
                     block = try .application(.init(metadata))
                     otherBlocks.append(block)
                 }
             }
-            self.blocks = .init(streamInfo, otherBlocks)
+            self.blocks = .init(streamInfo: streamInfo, otherBlocks: otherBlocks)
         }
         precondition(handle.currentIndex == (blocks.totalLength+4))
+        precondition(blocks.totalLength == blocks.totalNonPaddingLength + blocks.paddingLength)
     }
     
     public var streamInfo: StreamInfo {
-        if case let MetadataBlock.streamInfo(s) = blocks.head {
-            return s
-        } else {
-            fatalError("Missing stream info block")
-        }
+        blocks.streamInfo
     }
     
     public mutating func append(_ application: Application) {
-        blocks.append(.application(application))
+        blocks.otherBlocks.append(.application(application))
     }
     
     public mutating func append(_ picture: Picture) {
-        blocks.append(.picture(picture))
+        blocks.otherBlocks.append(.picture(picture))
     }
     
     public mutating func removeBlocks(of types: BlockType...) {
-        let newTail = blocks.tail.filter {!types.contains($0.blockType)}
-        let head = blocks.head
-        self.blocks = .init(head, newTail)
+        let newTail = blocks.otherBlocks.filter {!types.contains($0.blockType)}
+        self.blocks.otherBlocks = newTail
     }
     
     public var vorbisComment: VorbisComment? {
         get {
-            for block in blocks {
+            for block in blocks.otherBlocks {
                 if case let .vorbisComment(v) = block {
                     return v
                 }
@@ -155,23 +164,23 @@ public struct FlacMetadata {
             return nil
         }
         set {
-            if let index = blocks.firstIndex(where: { $0.blockType == .vorbisComment }) {
+            if let index = blocks.otherBlocks.firstIndex(where: { $0.blockType == .vorbisComment }) {
                 if let value = newValue {
-                    blocks[index] = .vorbisComment(value)
+                    blocks.otherBlocks[index] = .vorbisComment(value)
                 } else {
                     // remove this block, set to padding
-                    let oldLength = blocks[index].length
-                    blocks[index] = .padding(.init(count: oldLength))
+                    let oldLength = blocks.otherBlocks[index].length
+                    blocks.otherBlocks[index] = .padding(.init(count: oldLength))
                 }
             } else {
                 if let value = newValue {
-                    blocks.append(.vorbisComment(value))
+                    blocks.otherBlocks.append(.vorbisComment(value))
                 }
             }
         }
     }
     
-    private func findFrameOffset(handle: FileHandle) throws -> Int {
+    private func findFrameOffset(_ handle: FileHandle) throws -> Int {
 //        handle.seek(toFileOffset: 0)
         guard handle.read(4).elementsEqual(FlacMetadata.flacHeader) else {
             throw MetaflacError.noFlacHeader
@@ -198,59 +207,95 @@ public struct FlacMetadata {
     /// if the input is binary input, it won't save
     ///
     /// - Throws: NSError from FileHandle
+    /// - Parameter newPaddingLength: the new created file's padding length
+    /// - Parameter tempPath: the directory path to put the temp flac file
     public func save(newPaddingLength: Int = 4000, tempPath: URL? = nil) throws {
         guard case let Input.file(sourceFile) = input else {
             return
         }
-        let blocks = self.blocks
-        let writeLength = blocks.totalLength + 4 - blocks.paddingLength
-        let sourceFileHandle = try FileHandle.init(forUpdating: sourceFile)
-        let frameOffset = try findFrameOffset(handle: sourceFileHandle)
-        let paddingLength = frameOffset - writeLength
-        if frameOffset < writeLength || paddingLength < 4 {
-            // MARK: create a new file
-            let tempFilepath = (tempPath ?? sourceFile.deletingLastPathComponent())
-                .appendingPathComponent("\(UUID().uuidString).flac")
-//                filepath.appendingPathExtension("metaflac_edit")
-            if URLFileManager.default.fileExistance(at: tempFilepath).exists {
-                try URLFileManager.default.removeItem(at: tempFilepath)
+        try autoreleasepool {
+            let blocks = self.blocks
+            let totalWriteLength = blocks.totalNonPaddingLength + 4
+            let sourceFileHandle = try FileHandle.init(forUpdating: sourceFile)
+            let currentHeadLength = try findFrameOffset(sourceFileHandle)
+            let restAvailableLength = currentHeadLength - totalWriteLength - MetadataBlockHeader.headerLength
+            let needNewFile = restAvailableLength < 0
+            if needNewFile {
+                // MARK: create a new file
+                let tempFilepath = (tempPath ?? sourceFile.deletingLastPathComponent())
+                    .appendingPathComponent("\(UUID().uuidString).flac")
+                if URLFileManager.default.fileExistance(at: tempFilepath).exists {
+                    try URLFileManager.default.removeItem(at: tempFilepath)
+                }
+                _ = URLFileManager.default.createFile(at: tempFilepath)
+                
+                let tempFileHandle = try FileHandle.init(forWritingTo: tempFilepath)
+                // flac header
+                tempFileHandle.write(.init(FlacMetadata.flacHeader))
+                // meta blocks
+                if newPaddingLength <= 0 {
+                    // no padding
+                    tempFileHandle.write(blocks: blocks, containLastMetadataBlock: true)
+                    precondition(totalWriteLength == tempFileHandle.offsetInFile)
+                } else {
+                    tempFileHandle.write(blocks: blocks, containLastMetadataBlock: false)
+                    precondition(totalWriteLength == tempFileHandle.offsetInFile)
+                    tempFileHandle.writeLastPadding(count: newPaddingLength)
+                }
+                // frames
+                let restData = sourceFileHandle.readDataToEndOfFile()
+                tempFileHandle.write(restData)
+                tempFileHandle.closeFile()
+                sourceFileHandle.closeFile()
+                _ = try URLFileManager.default.replaceItemAt(sourceFile, withItemAt: tempFilepath, options: .usingNewMetadataOnly)
+            } else {
+                sourceFileHandle.seek(toFileOffset: 4)
+                if restAvailableLength == 0 {
+                    sourceFileHandle.write(blocks: blocks, containLastMetadataBlock: true)
+                    precondition(totalWriteLength == sourceFileHandle.offsetInFile)
+                } else {
+                    sourceFileHandle.write(blocks: blocks, containLastMetadataBlock: false)
+                    precondition(totalWriteLength == sourceFileHandle.offsetInFile)
+                    sourceFileHandle.writeLastPadding(count: restAvailableLength)
+                }
+                sourceFileHandle.closeFile()
             }
-            _ = URLFileManager.default.createFile(at: tempFilepath)
-            
-            let tempFileHandle = try FileHandle.init(forWritingTo: tempFilepath)
-            tempFileHandle.write(.init(FlacMetadata.flacHeader))
-            tempFileHandle.write(blocks: blocks)
-            tempFileHandle.write(block: .padding(Padding.init(count: newPaddingLength)), isLastMetadataBlock: true)
-            tempFileHandle.write(sourceFileHandle.readDataToEndOfFile())
-            tempFileHandle.closeFile()
-            sourceFileHandle.closeFile()
-            _ = try URLFileManager.default.replaceItemAt(sourceFile, withItemAt: tempFilepath, options: .usingNewMetadataOnly)
-        } else {
-            sourceFileHandle.seek(toFileOffset: 4)
-            sourceFileHandle.write(blocks: blocks)
-            precondition(writeLength == sourceFileHandle.offsetInFile)
-            sourceFileHandle.write(block: .padding(Padding.init(count: paddingLength - 4)), isLastMetadataBlock: true)
-            sourceFileHandle.closeFile()
         }
+        
     }
     
 }
 
-private extension FileHandle {
+extension FileHandle {
     
-    func write(blocks: NonEmptyArray<MetadataBlock>) {
-        for block in blocks {
-            if block.blockType == .padding {
-                continue
+    fileprivate func write(blocks: FlacMetadata.MetadataBlocks, containLastMetadataBlock: Bool) {
+        let nonPaddingBlocks = blocks.otherBlocks.filter {$0.blockType != .padding}
+        if nonPaddingBlocks.isEmpty {
+            // only a StreamInfo block
+            write(block: .streamInfo(blocks.streamInfo), isLastMetadataBlock: containLastMetadataBlock)
+        } else {
+            write(block: .streamInfo(blocks.streamInfo), isLastMetadataBlock: false)
+            for (offset, element) in nonPaddingBlocks.enumerated() {
+                if offset == nonPaddingBlocks.count - 1 {
+                    write(block: element,
+                          isLastMetadataBlock: containLastMetadataBlock)
+                } else {
+                    write(block: element, isLastMetadataBlock: false)
+                }
             }
-            write(block.header(lastMetadataBlockFlag: false).encode())
-            write(block.value.data)
         }
     }
     
-    func write(block: MetadataBlock, isLastMetadataBlock: Bool) {
-        write(block.header(lastMetadataBlockFlag: isLastMetadataBlock).encode())
-        write(block.value.data)
+    fileprivate func writeLastPadding(count: Int) {
+        write(block: .padding(.init(count: count)), isLastMetadataBlock: true)
+    }
+    
+    private func write(block: MetadataBlock, isLastMetadataBlock: Bool) {
+        let header = block.header(lastMetadataBlockFlag: isLastMetadataBlock)
+        let decoded = try! MetadataBlockHeader.init(data: header.encode())
+        precondition(header == decoded)
+        write(header.encode())
+        write(block.data)
     }
     
 }

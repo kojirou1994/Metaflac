@@ -102,7 +102,7 @@ public struct Picture: MetadataBlockData, Equatable {
     
     public init(pictureType: PictureType, mimeType: String, description: String,
                 width: UInt32, height: UInt32, colorDepth: UInt32, numberOfColors: UInt32,
-                pictureData: Data) {
+                pictureData: Data) throws {
         self.pictureType = pictureType
         self.mimeType = mimeType
         self.descriptionString = description
@@ -111,6 +111,7 @@ public struct Picture: MetadataBlockData, Equatable {
         self.colorDepth = colorDepth
         self.numberOfColors = numberOfColors
         self.pictureData = pictureData
+        try checkLength()
     }
     
     public init?(file: URL) {

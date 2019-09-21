@@ -44,7 +44,6 @@ public struct StreamInfo: MetadataBlockData, Equatable {
         maximumFrameSize = reader.read(3).joined(UInt32.self)
         //sampleRate numberOfChannels bitsPerSample totalSamples
         let fourElements = reader.read(8).joined(UInt64.self)
-//        print(fourElements.binaryString)
         sampleRate = fourElements >> 44
         numberOfChannels = ((fourElements << 20) >> 61) + 1
         bitsPerSampe = ((fourElements << 23) >> 59) + 1

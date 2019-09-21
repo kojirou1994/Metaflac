@@ -1,3 +1,5 @@
+import Foundation
+
 public enum MetadataBlock {
     case streamInfo(StreamInfo)
     case padding(Padding)
@@ -20,27 +22,46 @@ public enum MetadataBlock {
     }
     
     public var length: Int {
-        return value.length
-    }
-    
-    public var totalLength: Int {
-        return value.totalLength
-    }
-    
-    public var value: MetadataBlockData {
         switch self {
-        case .application(let v): return v
-        case .cueSheet(let v): return v
-        case .padding(let v): return v
-        case .picture(let v): return v
-        case .seekTable(let v): return v
-        case .streamInfo(let v): return v
-        case .vorbisComment(let v): return v
+        case .application(let v): return v.length
+        case .cueSheet(let v): return v.length
+        case .padding(let v): return v.length
+        case .picture(let v): return v.length
+        case .seekTable(let v): return v.length
+        case .streamInfo(let v): return v.length
+        case .vorbisComment(let v): return v.length
+        }
+    }
+
+    public var totalLength: Int {
+        return length + MetadataBlockHeader.headerLength
+    }
+    
+    public var data: Data {
+        switch self {
+        case .application(let v): return v.data
+        case .cueSheet(let v): return v.data
+        case .padding(let v): return v.data
+        case .picture(let v): return v.data
+        case .seekTable(let v): return v.data
+        case .streamInfo(let v): return v.data
+        case .vorbisComment(let v): return v.data
         }
     }
     
+//    public var value: MetadataBlockData {
+//        switch self {
+//        case .application(let v): return v
+//        case .cueSheet(let v): return v
+//        case .padding(let v): return v
+//        case .picture(let v): return v
+//        case .seekTable(let v): return v
+//        case .streamInfo(let v): return v
+//        case .vorbisComment(let v): return v
+//        }
+//    }
     
-    func header(lastMetadataBlockFlag: Bool) -> MetadataBlockHeader {
+    internal func header(lastMetadataBlockFlag: Bool) -> MetadataBlockHeader {
         return .init(lastMetadataBlockFlag: lastMetadataBlockFlag, blockType: blockType, length: UInt32(length))
     }
     

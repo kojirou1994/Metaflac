@@ -1,6 +1,10 @@
 import Foundation
 
 internal struct MetadataBlockHeader: CustomStringConvertible, Equatable {
+    
+    internal static let headerLength = 4
+    
+    internal static let maxBlockLength: UInt32 = 0xffffff
 
     /// Last-metadata-block flag: '1' if this block is the last metadata block before the audio blocks, '0' otherwise.
     internal let lastMetadataBlockFlag: Bool
@@ -22,7 +26,7 @@ internal struct MetadataBlockHeader: CustomStringConvertible, Equatable {
     }
     
     internal init(lastMetadataBlockFlag: Bool, blockType: BlockType, length: UInt32) {
-//        precondition((0...2^24).contains(length))
+        precondition((0...Self.maxBlockLength).contains(length))
         self.lastMetadataBlockFlag = lastMetadataBlockFlag
         self.blockType = blockType
         self.length = length
@@ -30,10 +34,10 @@ internal struct MetadataBlockHeader: CustomStringConvertible, Equatable {
     
     internal func encode() -> Data {
         var compressed: UInt32 = 0
-        compressed |= (lastMetadataBlockFlag ? 1 : 0 ) << 31
-        compressed |= UInt32(blockType.rawValue) << 24
+        let v1 = blockType.rawValue | ((lastMetadataBlockFlag ? 1 : 0 ) << 7)
+        compressed |= UInt32(v1) << 24
         compressed |= length
-        return Data.init(compressed.splited)
+        return Data(compressed.splited)
     }
     
     internal var description: String {
