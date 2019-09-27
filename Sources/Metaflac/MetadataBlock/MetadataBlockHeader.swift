@@ -37,7 +37,7 @@ internal struct MetadataBlockHeader: CustomStringConvertible, Equatable {
         let v1 = blockType.rawValue | ((lastMetadataBlockFlag ? 1 : 0 ) << 7)
         compressed |= UInt32(v1) << 24
         compressed |= length
-        return Data(compressed.splited)
+        return Data(compressed.bytes)
     }
     
     internal var description: String {

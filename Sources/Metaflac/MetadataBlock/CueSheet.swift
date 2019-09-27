@@ -80,7 +80,7 @@ public struct CueSheet: MetadataBlockData, Equatable {
     public var data: Data {
         var result = Data.init(capacity: length)
         result.append(mediaCatalogNumber)
-        result.append(contentsOf: numberOfLeadinSamples.splited)
+        result.append(contentsOf: numberOfLeadinSamples.bytes)
         let flag: UInt8 = compactDisc ? 0b10000000 : 0
         result.append(flag)
         for _ in 1...258 {
@@ -88,7 +88,7 @@ public struct CueSheet: MetadataBlockData, Equatable {
         }
         result.append(trackNumber)
         for track in tracks {
-            result.append(contentsOf: track.trackOffsetInSamples.splited)
+            result.append(contentsOf: track.trackOffsetInSamples.bytes)
             result.append(track.trackNumber)
             result.append(contentsOf: track.trackISRC)
             var flag: UInt8 = track.isAudio ? 0 : 1
@@ -100,7 +100,7 @@ public struct CueSheet: MetadataBlockData, Equatable {
             }
             result.append(track.numberOfTrackIndexPoints)
             for index in track.indexes {
-                result.append(contentsOf: index.offsetInSample.splited)
+                result.append(contentsOf: index.offsetInSample.bytes)
                 result.append(index.indexPointNumber)
                 for _ in 1...3 {
                     result.append(0)

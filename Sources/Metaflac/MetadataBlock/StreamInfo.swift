@@ -58,16 +58,16 @@ public struct StreamInfo: MetadataBlockData, Equatable {
     
     public var data: Data {
         var result = Data.init(capacity: length)
-        result.append(contentsOf: minimumBlockSize.splited)
-        result.append(contentsOf: maximumBlockSize.splited)
-        result.append(contentsOf: minimumFrameSize.splited[1...])
-        result.append(contentsOf: maximumFrameSize.splited[1...])
+        result.append(contentsOf: minimumBlockSize.bytes)
+        result.append(contentsOf: maximumBlockSize.bytes)
+        result.append(contentsOf: minimumFrameSize.bytes[1...])
+        result.append(contentsOf: maximumFrameSize.bytes[1...])
         var fourElements = UInt64.init()
         fourElements |= sampleRate << 44
         fourElements |= (numberOfChannels - 1) << 41
         fourElements |= (bitsPerSampe - 1) << 36
         fourElements |= totalSamples
-        result.append(contentsOf: fourElements.splited)
+        result.append(contentsOf: fourElements.bytes)
         result.append(contentsOf: md5Signature)
         return result
     }

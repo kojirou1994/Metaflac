@@ -59,9 +59,9 @@ public struct SeekTable: MetadataBlockData, Equatable {
     public var data: Data {
         var result = Data.init(capacity: length)
         for seekPoint in seekPoints {
-            result.append(contentsOf: seekPoint.sampleNumber.splited)
-            result.append(contentsOf: seekPoint.offset.splited)
-            result.append(contentsOf: seekPoint.frameSample.splited)
+            result.append(contentsOf: seekPoint.sampleNumber.bytes)
+            result.append(contentsOf: seekPoint.offset.bytes)
+            result.append(contentsOf: seekPoint.frameSample.bytes)
         }
         return result
     }

@@ -34,11 +34,11 @@ public struct VorbisComment: MetadataBlockData, Equatable {
     public var data: Data {
         let capacity = length
         var result = Data.init(capacity: capacity)
-        result.append(contentsOf: UInt32(vendorString.utf8.count).byteSwapped.splited)
+        result.append(contentsOf: UInt32(vendorString.utf8.count).byteSwapped.bytes)
         result.append(contentsOf: Data(vendorString.utf8))
-        result.append(contentsOf: UInt32(userComments.count).byteSwapped.splited)
+        result.append(contentsOf: UInt32(userComments.count).byteSwapped.bytes)
         for comment in userComments {
-            result.append(contentsOf: UInt32(comment.utf8.count).byteSwapped.splited)
+            result.append(contentsOf: UInt32(comment.utf8.count).byteSwapped.bytes)
             result.append(contentsOf: Data(comment.utf8))
         }
         precondition(capacity == result.count)
