@@ -4,29 +4,30 @@ import Foundation
 public struct Application: MetadataBlockData, Equatable {
     
     /// Registered application ID. (Visit the registration page to register an ID with FLAC.)
-    public let id: String
+    public let id: Data
     
     public let applicationData: Data
     
     public init(_ data: Data) throws {
         let reader = DataHandle.init(data: data)
-        id = .init(decoding: reader.read(4), as: UTF8.self)
+        id = Data(reader.read(4))
         self.applicationData = Data(reader.readToEnd())
         try reader.check()
     }
     
     public var length: Int {
-        return 32/8 + applicationData.count
+        return 4 + applicationData.count
     }
     
     public var data: Data {
-        var result = Data(id.utf8)
+        var result = Data(capacity: length)
+        result.append(id)
         result += applicationData
         return result
     }
     
-    public init(id: String, applicationData: Data) {
-        precondition(id.utf8.count == 4)
+    public init(id: Data, applicationData: Data) {
+        precondition(id.count == 4)
         self.id = id
         self.applicationData = applicationData
     }
