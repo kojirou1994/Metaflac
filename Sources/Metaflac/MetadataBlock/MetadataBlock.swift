@@ -32,6 +32,18 @@ public enum MetadataBlock {
         case .vorbisComment(let v): return v.length
         }
     }
+    
+    internal func checkLength() throws {
+        switch self {
+        case .application(let v): try v.checkLength()
+        case .cueSheet(let v): try v.checkLength()
+        case .padding(let v): try v.checkLength()
+        case .picture(let v): try v.checkLength()
+        case .seekTable(let v): try v.checkLength()
+        case .streamInfo(let v): try v.checkLength()
+        case .vorbisComment(let v): try v.checkLength()
+        }
+    }
 
     public var totalLength: Int {
         return length + MetadataBlockHeader.headerLength

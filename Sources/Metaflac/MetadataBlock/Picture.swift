@@ -84,11 +84,11 @@ public struct Picture: MetadataBlockData, Equatable {
         }
     }
     
-    public let pictureType: PictureType
+    public var pictureType: PictureType
     
     public let mimeType: String
     
-    public let descriptionString: String
+    public var descriptionString: String
     
     public let width: UInt32
     
@@ -115,8 +115,14 @@ public struct Picture: MetadataBlockData, Equatable {
     }
     
     public init?(file: URL) {
-        guard let pictureData = try? Data.init(contentsOf: file),
-              let imageInfo = ImageInfo.init(data: pictureData) else {
+        guard let pictureData = try? Data.init(contentsOf: file) else {
+            return nil
+        }
+        self.init(pictureData: pictureData)
+    }
+    
+    public init?(pictureData: Data) {
+        guard let imageInfo = ImageInfo.init(data: pictureData) else {
             return nil
         }
         self.pictureType = .coverFront

@@ -208,46 +208,53 @@ public struct FlacMetadata {
     ///
     /// - Throws: NSError from FileHandle
     /// - Parameter newPaddingLength: the new created file's padding length
-    /// - Parameter tempPath: the directory path to put the temp flac file
-    public func save(newPaddingLength: Int = 4000, tempPath: URL? = nil) throws {
+    /// - Parameter atomic: A hint to force write data to an auxiliary file first and then exchange the files.
+    public func save(newPaddingLength: Int = 4000,
+                     atomic: Bool) throws {
         guard case let Input.file(sourceFile) = input else {
             return
         }
+        try blocks.otherBlocks.forEach { try $0.checkLength() }
         try autoreleasepool {
             let blocks = self.blocks
             let totalWriteLength = blocks.totalNonPaddingLength + 4
             let sourceFileHandle = try FileHandle.init(forUpdating: sourceFile)
             let currentHeadLength = try findFrameOffset(sourceFileHandle)
             let restAvailableLength = currentHeadLength - totalWriteLength - MetadataBlockHeader.headerLength
-            let needNewFile = restAvailableLength < 0
+            let needNewFile = restAvailableLength < 0 || atomic
             if needNewFile {
                 // MARK: create a new file
-                let tempFilepath = (tempPath ?? sourceFile.deletingLastPathComponent())
+                let tempFileURL = sourceFile.deletingLastPathComponent()
                     .appendingPathComponent("\(UUID().uuidString).flac")
-                if URLFileManager.default.fileExistance(at: tempFilepath).exists {
-                    try URLFileManager.default.removeItem(at: tempFilepath)
+                do {
+                    if URLFileManager.default.fileExistance(at: tempFileURL).exists {
+                        try URLFileManager.default.removeItem(at: tempFileURL)
+                    }
+                    _ = URLFileManager.default.createFile(at: tempFileURL)
+                    
+                    let tempFileHandle = try FileHandle(forWritingTo: tempFileURL)
+                    // flac header
+                    tempFileHandle.write(.init(FlacMetadata.flacHeader))
+                    // meta blocks
+                    if newPaddingLength <= 0 {
+                        // no padding
+                        tempFileHandle.write(blocks: blocks, containLastMetadataBlock: true)
+                        precondition(totalWriteLength == tempFileHandle.offsetInFile)
+                    } else {
+                        tempFileHandle.write(blocks: blocks, containLastMetadataBlock: false)
+                        precondition(totalWriteLength == tempFileHandle.offsetInFile)
+                        tempFileHandle.writeLastPadding(count: newPaddingLength)
+                    }
+                    // frames
+                    let restData = sourceFileHandle.readDataToEndOfFile()
+                    tempFileHandle.write(restData)
+                    tempFileHandle.closeFile()
+                    sourceFileHandle.closeFile()
+                    _ = try URLFileManager.default.replaceItemAt(sourceFile, withItemAt: tempFileURL, options: [])
+                } catch {
+                    try? URLFileManager.default.removeItem(at: tempFileURL)
+                    throw error
                 }
-                _ = URLFileManager.default.createFile(at: tempFilepath)
-                
-                let tempFileHandle = try FileHandle.init(forWritingTo: tempFilepath)
-                // flac header
-                tempFileHandle.write(.init(FlacMetadata.flacHeader))
-                // meta blocks
-                if newPaddingLength <= 0 {
-                    // no padding
-                    tempFileHandle.write(blocks: blocks, containLastMetadataBlock: true)
-                    precondition(totalWriteLength == tempFileHandle.offsetInFile)
-                } else {
-                    tempFileHandle.write(blocks: blocks, containLastMetadataBlock: false)
-                    precondition(totalWriteLength == tempFileHandle.offsetInFile)
-                    tempFileHandle.writeLastPadding(count: newPaddingLength)
-                }
-                // frames
-                let restData = sourceFileHandle.readDataToEndOfFile()
-                tempFileHandle.write(restData)
-                tempFileHandle.closeFile()
-                sourceFileHandle.closeFile()
-                _ = try URLFileManager.default.replaceItemAt(sourceFile, withItemAt: tempFilepath, options: .usingNewMetadataOnly)
             } else {
                 sourceFileHandle.seek(toFileOffset: 4)
                 if restAvailableLength == 0 {
