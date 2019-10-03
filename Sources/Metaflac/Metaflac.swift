@@ -294,7 +294,18 @@ extension FileHandle {
     }
     
     fileprivate func writeLastPadding(count: Int) {
-        write(block: .padding(.init(count: count)), isLastMetadataBlock: true)
+        
+        let maxPaddingLength = Int(MetadataBlockHeader.maxBlockLength)
+        if count <= maxPaddingLength {
+            write(block: .padding(.init(count: count)), isLastMetadataBlock: true)
+        } else {
+            var rest = count + 4
+            while rest >= (8 + maxPaddingLength) {
+                write(block: .padding(.init(count: maxPaddingLength)), isLastMetadataBlock: false)
+                rest -= maxPaddingLength + 4
+            }
+            write(block: .padding(.init(count: rest-4)), isLastMetadataBlock: true)
+        }
     }
     
     private func write(block: MetadataBlock, isLastMetadataBlock: Bool) {
