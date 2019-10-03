@@ -221,7 +221,13 @@ public struct FlacMetadata {
             let sourceFileHandle = try FileHandle.init(forUpdating: sourceFile)
             let currentHeadLength = try findFrameOffset(sourceFileHandle)
             let restAvailableLength = currentHeadLength - totalWriteLength - MetadataBlockHeader.headerLength
+            #if os(macOS) || os(iOS)
+            let needNewFile = restAvailableLength < 0
+            let useAPFS = atomic
+            #else
             let needNewFile = restAvailableLength < 0 || atomic
+            let useAPFS = false
+            #endif
             if needNewFile {
                 // MARK: create a new file
                 let tempFileURL = sourceFile.deletingLastPathComponent()
@@ -256,16 +262,51 @@ public struct FlacMetadata {
                     throw error
                 }
             } else {
-                sourceFileHandle.seek(toFileOffset: 4)
-                if restAvailableLength == 0 {
-                    sourceFileHandle.write(blocks: blocks, containLastMetadataBlock: true)
-                    precondition(totalWriteLength == sourceFileHandle.offsetInFile)
+                // MARK: use APFS feature on apple devices
+                if useAPFS {
+                    #if DEBUG
+                    print("Using APFS to speed up")
+                    #endif
+                    let tempFileURL = sourceFile.deletingLastPathComponent()
+                        .appendingPathComponent("\(UUID().uuidString).flac")
+                    do {
+                        if URLFileManager.default.fileExistance(at: tempFileURL).exists {
+                            try URLFileManager.default.removeItem(at: tempFileURL)
+                        }
+                        try URLFileManager.default.copyItem(at: sourceFile, to: tempFileURL)
+                        
+                        let tempFileHandle = try FileHandle(forWritingTo: tempFileURL)
+                        
+                        tempFileHandle.seek(toFileOffset: 4)
+                        if restAvailableLength == 0 {
+                            tempFileHandle.write(blocks: blocks, containLastMetadataBlock: true)
+                            precondition(totalWriteLength == tempFileHandle.offsetInFile)
+                        } else {
+                            tempFileHandle.write(blocks: blocks, containLastMetadataBlock: false)
+                            precondition(totalWriteLength == tempFileHandle.offsetInFile)
+                            tempFileHandle.writeLastPadding(count: restAvailableLength)
+                        }
+                        
+                        tempFileHandle.closeFile()
+                        sourceFileHandle.closeFile()
+                        
+                        _ = try URLFileManager.default.replaceItemAt(sourceFile, withItemAt: tempFileURL, options: [])
+                    } catch {
+                        try? URLFileManager.default.removeItem(at: tempFileURL)
+                        throw error
+                    }
                 } else {
-                    sourceFileHandle.write(blocks: blocks, containLastMetadataBlock: false)
-                    precondition(totalWriteLength == sourceFileHandle.offsetInFile)
-                    sourceFileHandle.writeLastPadding(count: restAvailableLength)
+                    sourceFileHandle.seek(toFileOffset: 4)
+                    if restAvailableLength == 0 {
+                        sourceFileHandle.write(blocks: blocks, containLastMetadataBlock: true)
+                        precondition(totalWriteLength == sourceFileHandle.offsetInFile)
+                    } else {
+                        sourceFileHandle.write(blocks: blocks, containLastMetadataBlock: false)
+                        precondition(totalWriteLength == sourceFileHandle.offsetInFile)
+                        sourceFileHandle.writeLastPadding(count: restAvailableLength)
+                    }
+                    sourceFileHandle.closeFile()
                 }
-                sourceFileHandle.closeFile()
             }
         }
         
