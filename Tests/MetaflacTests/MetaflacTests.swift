@@ -107,21 +107,21 @@ final class MetaflacTests: XCTestCase {
     func testSave() {
         let v = VorbisComment.init(vendorString: "reference libFLAC 1.3.2 20170101", userComments: ["KEY=VALUE"])
         metaflac.vorbisComment = v
-        try! metaflac.save(atomic: false)
+        try! metaflac.save(paddingMode: .autoResize(upTo: 1000), atomic: false)
         try! metaflac.reload()
         XCTAssertEqual(v, metaflac.vorbisComment)
     }
     
     func testAddLength() {
         metaflac.append(Application.init(id: "ABCD".data(using: .ascii)!, applicationData: Data.init(repeating: 0, count: 10_000_000)))
-        try! metaflac.save(atomic: false)
+        try! metaflac.save(paddingMode: .autoResize(upTo: 1000), atomic: false)
         try! metaflac.reload()
     }
     
     func testAddPicture() {
         let pictureBlock = Metaflac.Picture.init(file: .init(fileURLWithPath: "/Users/kojirou/Projects/Metaflac/Examples/cover.jpg"))!
         metaflac.append(pictureBlock)
-        try! metaflac.save(atomic: false)
+        try! metaflac.save(paddingMode: .autoResize(upTo: 1000), atomic: false)
         try! metaflac.reload()
     }
     
