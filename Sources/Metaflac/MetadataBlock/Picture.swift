@@ -128,8 +128,8 @@ public struct Picture: MetadataBlockData, Equatable {
         self.pictureType = .coverFront
         self.mimeType = imageInfo.format.mimeType
         self.descriptionString = ""
-        self.width = imageInfo.width
-        self.height = imageInfo.height
+        self.width = imageInfo.resolution.width
+        self.height = imageInfo.resolution.height
         self.colorDepth = UInt32(imageInfo.depth)
         self.numberOfColors = imageInfo.colors
         self.pictureData = pictureData
