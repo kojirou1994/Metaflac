@@ -1,6 +1,5 @@
 import Foundation
 
-
 /// This block is for storing various information that can be used in a cue sheet. It supports track and index points, compatible with Red Book CD digital audio discs, as well as other CD-DA metadata such as media catalog number and track ISRCs. The CUESHEET block is especially useful for backing up CD-DA discs, but it can be used as a general purpose cueing mechanism for playback.
 public struct CueSheet: MetadataBlockData, Equatable {
     
@@ -39,7 +38,7 @@ public struct CueSheet: MetadataBlockData, Equatable {
     }
     
     public init(_ data: Data) throws {
-        let reader = DataHandle.init(data: data)
+        let reader = ByteReader.init(data: data)
         mediaCatalogNumber = reader.read(128)
         numberOfLeadinSamples = reader.read(64/8).joined(UInt64.self)
         let flag = reader.readByte()
@@ -74,7 +73,7 @@ public struct CueSheet: MetadataBlockData, Equatable {
     }
     
     public var length: Int {
-        return 128 + 8 + 1 + 258 + 1 + tracks.reduce(0, {$0 + 8 + 1 + 12 + 14 + 1 + $1.indexes.count * 12})
+        396 + tracks.reduce(0, {$0 + 36 + $1.indexes.count * 12})
     }
     
     public var data: Data {

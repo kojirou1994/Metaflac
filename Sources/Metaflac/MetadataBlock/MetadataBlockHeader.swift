@@ -1,18 +1,18 @@
 import Foundation
 
-internal struct MetadataBlockHeader: CustomStringConvertible, Equatable {
+public struct MetadataBlockHeader: CustomStringConvertible, Equatable {
     
     internal static let headerLength = 4
     
     internal static let maxBlockLength: UInt32 = 0xffffff
 
     /// Last-metadata-block flag: '1' if this block is the last metadata block before the audio blocks, '0' otherwise.
-    internal let lastMetadataBlockFlag: Bool
+    public let lastMetadataBlockFlag: Bool
     
-    internal let blockType: BlockType
+    public let blockType: BlockType
     
     /// Length (in bytes) of metadata to follow (does not include the size of the METADATA_BLOCK_HEADER)
-    internal let length: UInt32
+    public let length: UInt32
     
     internal init(data: Data) throws {
         let compressed = data.joined(UInt32.self)
@@ -40,7 +40,7 @@ internal struct MetadataBlockHeader: CustomStringConvertible, Equatable {
         return Data(compressed.bytes)
     }
     
-    internal var description: String {
+    public var description: String {
         return """
         type: \(blockType.rawValue) (\(blockType))
         is last: \(lastMetadataBlockFlag)

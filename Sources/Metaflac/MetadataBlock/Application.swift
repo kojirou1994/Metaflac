@@ -9,17 +9,17 @@ public struct Application: MetadataBlockData, Equatable {
     public let applicationData: Data
     
     public init(_ data: Data) throws {
-        let reader = DataHandle.init(data: data)
+        let reader = ByteReader.init(data: data)
         id = Data(reader.read(4))
         self.applicationData = Data(reader.readToEnd())
         try reader.check()
     }
     
-    public var length: Int {
-        return 4 + applicationData.count
+    internal var length: Int {
+        4 + applicationData.count
     }
     
-    public var data: Data {
+    internal var data: Data {
         var result = Data(capacity: length)
         result.append(id)
         result += applicationData

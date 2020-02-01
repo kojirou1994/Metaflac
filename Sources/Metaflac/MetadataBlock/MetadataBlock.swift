@@ -21,7 +21,7 @@ public enum MetadataBlock {
         }
     }
     
-    public var length: Int {
+    internal var length: Int {
         switch self {
         case .application(let v): return v.length
         case .cueSheet(let v): return v.length
@@ -45,36 +45,12 @@ public enum MetadataBlock {
         }
     }
 
-    public var totalLength: Int {
-        return length + MetadataBlockHeader.headerLength
+    internal var totalLength: Int {
+        length + MetadataBlockHeader.headerLength
     }
-    
-    public var data: Data {
-        switch self {
-        case .application(let v): return v.data
-        case .cueSheet(let v): return v.data
-        case .padding(let v): return v.data
-        case .picture(let v): return v.data
-        case .seekTable(let v): return v.data
-        case .streamInfo(let v): return v.data
-        case .vorbisComment(let v): return v.data
-        }
-    }
-    
-//    public var value: MetadataBlockData {
-//        switch self {
-//        case .application(let v): return v
-//        case .cueSheet(let v): return v
-//        case .padding(let v): return v
-//        case .picture(let v): return v
-//        case .seekTable(let v): return v
-//        case .streamInfo(let v): return v
-//        case .vorbisComment(let v): return v
-//        }
-//    }
     
     internal func header(lastMetadataBlockFlag: Bool) -> MetadataBlockHeader {
-        return .init(lastMetadataBlockFlag: lastMetadataBlockFlag, blockType: blockType, length: UInt32(length))
+        .init(lastMetadataBlockFlag: lastMetadataBlockFlag, blockType: blockType, length: UInt32(length))
     }
     
     var toPadding: Padding? {
@@ -107,3 +83,28 @@ public enum MetadataBlock {
 }
 
 extension MetadataBlock: Equatable { }
+
+extension FileHandle {
+    internal func write(block: MetadataBlock) {
+        switch block {
+        case .application(let v): write(v.data)
+        case .cueSheet(let v): write(v.data)
+        case .padding(let v): write(contentsOf: v.data)
+        case .picture(let v): write(v.data)
+        case .seekTable(let v): write(v.data)
+        case .streamInfo(let v): write(v.data)
+        case .vorbisComment(let v): write(v.data)
+        }
+    }
+
+    private func write<T: DataProtocol>(contentsOf data: T) {
+        for region in data.regions {
+            region.withUnsafeBytes { (bytes) in
+                if let baseAddress = bytes.baseAddress, bytes.count > 0 {
+                    let d = Data(bytesNoCopy: .init(mutating: baseAddress), count: bytes.count, deallocator: .none)
+                    self.write(d)
+                }
+            }
+        }
+    }
+}

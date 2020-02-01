@@ -1,7 +1,20 @@
 import Foundation
-import protocol KwiftUtility.LosslessDataConvertible
 
-protocol MetadataBlockData: LosslessDataConvertible, CustomStringConvertible {
+protocol LosslessDataConvertible {
+
+    init(_ data: Data) throws
+
+    var data: Data { get }
+
+}
+
+protocol MetadataBlockData: /*LosslessDataConvertible, */CustomStringConvertible {
+
+    init(_ data: Data) throws
+
+    associatedtype Encoded: DataProtocol
+
+    var data: Encoded { get }
     
     /// length in bytes
     var length: Int { get }

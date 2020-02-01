@@ -1,7 +1,4 @@
 import Foundation
-#if os(Linux)
-import KwiftExtension
-#endif
 import URLFileManager
 
 public enum MetaflacError: Error {
@@ -36,7 +33,7 @@ public struct FlacMetadata {
                                {$0 + ($1.blockType == .padding ? 0 : $1.totalLength)})
         }
         
-        var paddingLength: Int {
+        internal var paddingLength: Int {
             otherBlocks.reduce(0, { $0 + ($1.toPadding?.totalLength ?? 0) })
         }
     }
@@ -44,11 +41,11 @@ public struct FlacMetadata {
     public var blocks: MetadataBlocks
     
     /// "fLaC", the FLAC stream marker in ASCII, meaning byte 0 of the stream is 0x66, followed by 0x4C 0x61 0x43
-    private static let flacHeader: [UInt8] = [0x66, 0x4c, 0x61, 0x43]
+    public static let flacHeader: [UInt8] = [0x66, 0x4c, 0x61, 0x43]
     
     private let input: Input
     
-    private enum Input {
+    internal enum Input {
         case file(URL)
         case binary(Data)
     }
@@ -77,77 +74,14 @@ public struct FlacMetadata {
     private static func read(input: Input) throws -> MetadataBlocks {
         switch input {
         case .binary(let data):
-            return try read(handle: DataHandle.init(data: data))
+            return try readBlocks(handle: ByteReader(data: data))
         case .file(let url):
             return try autoreleasepool {
-                try read(handle: FileHandle(forReadingFrom: url))
+                try readBlocks(handle: FileHandle(forReadingFrom: url))
             }
         }
     }
-    
-    private static func read<H: ReadHandle>(handle: H) throws -> MetadataBlocks {
-        
-        guard handle.read(4).elementsEqual(FlacMetadata.flacHeader) else {
-            throw MetaflacError.noFlacHeader
-        }
-        
-        let streamInfo: StreamInfo
-        let streamInfoBlockHeader = try MetadataBlockHeader.init(data: handle.read(4))
-        guard streamInfoBlockHeader.blockType == .streamInfo else {
-            throw MetaflacError.noStreamInfo
-        }
-        streamInfo = try .init(handle.read(Int(streamInfoBlockHeader.length)))
-        
-        if streamInfoBlockHeader.lastMetadataBlockFlag {
-            // no other blocks
-            return .init(streamInfo: streamInfo, otherBlocks: [])
-        } else {
-            var otherBlocks = [MetadataBlock]()
-            
-            var lastMeta = false
-            while !lastMeta {
-                let blockHeader = try MetadataBlockHeader.init(data: handle.read(4))
-                lastMeta = blockHeader.lastMetadataBlockFlag
-                let metadata = handle.read(Int(blockHeader.length))
-                let block: MetadataBlock
-                switch blockHeader.blockType {
-                case .streamInfo:
-                    throw MetaflacError.extraBlock(.streamInfo)
-                case .vorbisComment:
-                    // There may be only one VORBIS_COMMENT block in a stream
-                    if otherBlocks.contains(where: {$0.blockType == .vorbisComment}) {
-                        throw MetaflacError.extraBlock(.vorbisComment)
-                    }
-                    block = .vorbisComment(try .init(metadata))
-                    otherBlocks.append(block)
-                case .picture:
-                    block = .picture(try .init(metadata))
-                    otherBlocks.append(block)
-                case .padding:
-                    otherBlocks.append(.padding(.init(metadata)))
-                case .seekTable:
-                    if otherBlocks.contains(where: {$0.blockType == .seekTable}) {
-                        throw MetaflacError.extraBlock(.seekTable)
-                    }
-                    block = .seekTable(try .init(metadata))
-                    otherBlocks.append(block)
-                case .cueSheet:
-                    throw MetaflacError.unSupportedBlockType(.cueSheet)
-                case .invalid:
-                    throw MetaflacError.unSupportedBlockType(.invalid)
-                case .application:
-                    block = try .application(.init(metadata))
-                    otherBlocks.append(block)
-                }
-            }
-            
-//            precondition(handle.currentIndex == (blocks.totalLength+4))
-//            precondition(blocks.totalLength == blocks.totalNonPaddingLength + blocks.paddingLength)
-            
-            return .init(streamInfo: streamInfo, otherBlocks: otherBlocks)
-        }
-    }
-    
+
     @inlinable
     public var streamInfo: StreamInfo {
         blocks.streamInfo
@@ -168,8 +102,7 @@ public struct FlacMetadata {
         let newTail = blocks.otherBlocks.filter {!types.contains($0.blockType)}
         self.blocks.otherBlocks = newTail
     }
-    
-    @inlinable
+
     public var vorbisComment: VorbisComment? {
         get {
             for block in blocks.otherBlocks {
@@ -197,27 +130,7 @@ public struct FlacMetadata {
     }
     
     private func findFrameOffset(_ handle: FileHandle) throws -> Int {
-//        handle.seek(toFileOffset: 0)
-        guard handle.read(4).elementsEqual(FlacMetadata.flacHeader) else {
-            throw MetaflacError.noFlacHeader
-        }
-        
-        let streamInfoBlockHeader = try MetadataBlockHeader.init(data: handle.read(32/8))
-        guard streamInfoBlockHeader.blockType == .streamInfo else {
-            throw MetaflacError.noStreamInfo
-        }
-        handle.skip(Int(streamInfoBlockHeader.length))
-        if streamInfoBlockHeader.lastMetadataBlockFlag {
-            // no other blocks
-        } else {
-            var lastMeta = false
-            while !lastMeta {
-                let blockHeader = try MetadataBlockHeader.init(data: handle.read(32/8))
-                lastMeta = blockHeader.lastMetadataBlockFlag
-                handle.skip(Int(blockHeader.length))
-            }
-        }
-        return handle.currentIndex
+        try Self.read(handle: handle, callback: {_,_ in}).offset
     }
     
     public enum PaddingMode {
@@ -404,7 +317,7 @@ extension FileHandle {
 //        let decoded = try! MetadataBlockHeader.init(data: header.encode())
 //        precondition(header == decoded)
         write(header.encode())
-        write(block.data)
+        write(block: block)
     }
     
 }

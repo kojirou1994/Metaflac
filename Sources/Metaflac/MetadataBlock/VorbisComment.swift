@@ -8,7 +8,7 @@ public struct VorbisComment: MetadataBlockData, Equatable {
     public var userComments: [String]
     
     public init(_ data: Data) throws {
-        let reader = DataHandle.init(data: data)
+        let reader = ByteReader.init(data: data)
         let vendorLength = reader.read(4).joined(UInt32.self).byteSwapped
         vendorString = String.init(decoding: reader.read(Int(vendorLength)), as: UTF8.self)
         let userCommentListLength = reader.read(4).joined(UInt32.self).byteSwapped
@@ -27,11 +27,11 @@ public struct VorbisComment: MetadataBlockData, Equatable {
         self.userComments = userComments
     }
     
-    public var length: Int {
-        return 32/8 + vendorString.utf8.count + 32/8 + 32/8*userComments.count + userComments.reduce(0, {$0 + $1.utf8.count})
+    internal var length: Int {
+        8 + vendorString.utf8.count + 4*userComments.count + userComments.reduce(0, {$0 + $1.utf8.count})
     }
     
-    public var data: Data {
+    internal var data: Data {
         let capacity = length
         var result = Data.init(capacity: capacity)
         result.append(contentsOf: UInt32(vendorString.utf8.count).byteSwapped.bytes)

@@ -1,7 +1,13 @@
 import Foundation
-@_exported import class KwiftUtility.DataHandle
 
-protocol ReadHandle {
+#if os(Linux)
+@inline(__always)
+public func autoreleasepool<Result>(invoking body: () throws -> Result) rethrows -> Result {
+    try body()
+}
+#endif
+
+public protocol ByteReaderProtocol {
     func read(_ count: Int) -> Data
     
     func skip(_ count: Int)
@@ -9,34 +15,37 @@ protocol ReadHandle {
     var currentIndex: Int {get}
 }
 
-extension FileHandle: ReadHandle {
+extension FileHandle: ByteReaderProtocol {
     
-    func read(_ count: Int) -> Data {
-        return readData(ofLength: count)
+    public func read(_ count: Int) -> Data {
+        readData(ofLength: count)
     }
     
-    var currentIndex: Int {
-        return Int(offsetInFile)
+    public var currentIndex: Int {
+        Int(offsetInFile)
     }
     
-    func skip(_ count: Int) {
+    public func skip(_ count: Int) {
         seek(toFileOffset: offsetInFile + UInt64(count))
     }
     
 }
-extension DataHandle: ReadHandle {
+
+extension DataReader: ByteReaderProtocol {
     
 }
 
-extension DataHandle {
+extension DataReader {
     
     func check() throws {
+        #if DEBUG
         if isAtEnd {
-//            print("finished")
+            print("Block read finished")
         } else {
-//            print("there is unused data")
+            print("Block has unused data")
             throw MetaflacError.extraDataInMetadataBlock(data: readToEnd())
         }
+        #endif
     }
     
 }

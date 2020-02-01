@@ -37,7 +37,7 @@ public struct StreamInfo: MetadataBlockData, Equatable {
     }
     
     public init(_ data: Data) throws {
-        let reader = DataHandle.init(data: data)
+        let reader = ByteReader.init(data: data)
         minimumBlockSize = reader.read(2).joined(UInt16.self)
         maximumBlockSize = reader.read(2).joined(UInt16.self)
         minimumFrameSize = reader.read(3).joined(UInt32.self)
@@ -52,12 +52,12 @@ public struct StreamInfo: MetadataBlockData, Equatable {
         try reader.check()
     }
     
-    public var length: Int {
-        return 34
+    internal var length: Int {
+        34
     }
     
-    public var data: Data {
-        var result = Data.init(capacity: length)
+    internal var data: Data {
+        var result = Data(capacity: length)
         result.append(contentsOf: minimumBlockSize.bytes)
         result.append(contentsOf: maximumBlockSize.bytes)
         result.append(contentsOf: minimumFrameSize.bytes[1...])

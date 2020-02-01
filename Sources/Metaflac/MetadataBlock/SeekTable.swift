@@ -11,18 +11,18 @@ public struct SeekTable: MetadataBlockData, Equatable {
     }
     
     /// One or more seek points.
-    public let seekPoints: [SeekPoint]
+    public var seekPoints: [SeekPoint]
     
     public struct SeekPoint: CustomStringConvertible, Equatable {
         
         /// Sample number of first sample in the target frame, or 0xFFFFFFFFFFFFFFFF for a placeholder point.
-        public let sampleNumber: UInt64
+        public var sampleNumber: UInt64
         
         /// Offset (in bytes) from the first byte of the first frame header to the first byte of the target frame's header.
-        public let offset: UInt64
+        public var offset: UInt64
         
         /// Number of samples in the target frame.
-        public let frameSample: UInt16
+        public var frameSample: UInt16
         
         public var description: String {
             return "sample_number=\(sampleNumber), stream_offset=\(offset), frame_samples=\(frameSample)"
@@ -37,7 +37,7 @@ public struct SeekTable: MetadataBlockData, Equatable {
     public init(_ data: Data) throws {
         let count = data.count/18
         var seekpoints = [SeekPoint]()
-        let reader = DataHandle.init(data: data)
+        let reader = ByteReader.init(data: data)
         for _ in 0..<count {
             let sampleNumber = reader.read(8).joined(UInt64.self)
             let offset = reader.read(8).joined(UInt64.self)
@@ -52,11 +52,11 @@ public struct SeekTable: MetadataBlockData, Equatable {
         self.seekPoints = seekPoints
     }
     
-    public var length: Int {
-        return seekPoints.count * 18
+    internal var length: Int {
+        seekPoints.count * 18
     }
     
-    public var data: Data {
+    internal var data: Data {
         var result = Data.init(capacity: length)
         for seekPoint in seekPoints {
             result.append(contentsOf: seekPoint.sampleNumber.bytes)

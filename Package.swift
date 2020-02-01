@@ -9,25 +9,14 @@ let package = Package(
         .library(
             name: "Metaflac",
             targets: ["Metaflac"]),
-        // use metaflac cli
-        .library(
-            name: "MetaflacWrapper",
-            targets: ["MetaflacWrapper"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/kojirou1994/Kwift.git", from: "0.3.1"),
         .package(url: "https://github.com/kojirou1994/URLFileManager.git", from: "0.0.1")
     ],
     targets: [
         .target(
             name: "Metaflac",
-            dependencies: [
-                "Kwift",
-                "URLFileManager"]),
-        .target(
-            name: "MetaflacWrapper",
-            dependencies: [
-                "Executable"]),
+            dependencies: ["URLFileManager"]),
         .target(
             name: "Metaflac-Demo",
             dependencies: ["Metaflac"]),

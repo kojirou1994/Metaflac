@@ -1,5 +1,4 @@
 import Foundation
-import KwiftUtility
 
 /// This block is for storing pictures associated with the file, most commonly cover art from CDs. There may be more than one PICTURE block in a file. The picture format is similar to the APIC frame in ID3v2. The PICTURE block has a type, MIME type, and UTF-8 description like ID3v2, and supports external linking via URL (though this is discouraged). The differences are that there is no uniqueness constraint on the description field, and the MIME type is mandatory. The FLAC PICTURE block also includes the resolution, color depth, and palette size so that the client can search for a suitable picture without having to scan them all.
 public struct Picture: MetadataBlockData, Equatable {
@@ -113,14 +112,14 @@ public struct Picture: MetadataBlockData, Equatable {
         self.pictureData = pictureData
         try checkLength()
     }
-    
+    /*
     public init?(file: URL) {
         guard let pictureData = try? Data.init(contentsOf: file) else {
             return nil
         }
         self.init(pictureData: pictureData)
     }
-    
+
     public init?(pictureData: Data) {
         guard let imageInfo = ImageInfo.init(data: pictureData) else {
             return nil
@@ -134,9 +133,9 @@ public struct Picture: MetadataBlockData, Equatable {
         self.numberOfColors = imageInfo.colors
         self.pictureData = pictureData
     }
-    
+    */
     public init(_ data: Data) throws {
-        let reader = DataHandle.init(data: data)
+        let reader = ByteReader(data: data)
         let ptValue = reader.read(4).joined(UInt32.self)
         guard let pictureType = PictureType.init(rawValue: ptValue)  else {
             throw MetaflacError.invalidPictureType(code: ptValue)
@@ -154,12 +153,12 @@ public struct Picture: MetadataBlockData, Equatable {
         pictureData = reader.read(Int(pictureDataLength))
         try reader.check()
     }
-    
-    public var length: Int {
-        return 32 + mimeType.utf8.count + descriptionString.utf8.count + pictureData.count
+
+    internal var length: Int {
+        32 + mimeType.utf8.count + descriptionString.utf8.count + pictureData.count
     }
     
-    public var data: Data {
+    internal var data: Data {
 //        let capacity = length - pictureData.count
         var result = Data.init(capacity: length)
         result.append(contentsOf: pictureType.rawValue.bytes)
