@@ -82,7 +82,7 @@ public struct StreamInfo: MetadataBlockData, Equatable {
         channels: \(numberOfChannels)
         bits-per-sample: \(bitsPerSampe)
         total samples: \(totalSamples)
-        MD5 signature: \(md5Signature.hexString(prefix: ""))
+        MD5 signature: \(md5Signature.map {$0.description}.joined(separator: " "))
         """
     }
     
