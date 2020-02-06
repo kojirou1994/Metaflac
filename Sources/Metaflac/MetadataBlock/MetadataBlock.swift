@@ -85,11 +85,20 @@ public enum MetadataBlock {
 extension MetadataBlock: Equatable { }
 
 extension FileHandle {
-    internal func write(block: MetadataBlock) {
+    internal func write(block: MetadataBlock) throws {
         switch block {
         case .application(let v): write(v.data)
         case .cueSheet(let v): write(v.data)
-        case .padding(let v): write(contentsOf: v.data)
+        case .padding(let v):
+            #if swift(>=5.2)
+            if #available(OSX 10.15, *) {
+                try write(contentsOf: v.data)
+            } else {
+                metaflacWrite(contentsOf: v.data)
+            }
+            #else
+            metaflacWrite(contentsOf: v.data)
+            #endif
         case .picture(let v): write(v.data)
         case .seekTable(let v): write(v.data)
         case .streamInfo(let v): write(v.data)
@@ -97,7 +106,7 @@ extension FileHandle {
         }
     }
 
-    private func write<T: DataProtocol>(contentsOf data: T) {
+    private func metaflacWrite<T: DataProtocol>(contentsOf data: T) {
         for region in data.regions {
             region.withUnsafeBytes { (bytes) in
                 if let baseAddress = bytes.baseAddress, bytes.count > 0 {

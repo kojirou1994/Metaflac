@@ -317,7 +317,7 @@ extension FileHandle {
 //        let decoded = try! MetadataBlockHeader.init(data: header.encode())
 //        precondition(header == decoded)
         write(header.encode())
-        write(block: block)
+        try write(block: block)
     }
     
 }

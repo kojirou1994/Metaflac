@@ -7,7 +7,7 @@ public struct Padding: MetadataBlockData, Equatable {
     
     public init(_ data: Data) {
         count = data.count
-        if !data.allSatisfy {$0 == 0} {
+        if !data.allSatisfy({$0 == 0}) {
             print("[warning] padding block has non-zero data")
         }
     }
