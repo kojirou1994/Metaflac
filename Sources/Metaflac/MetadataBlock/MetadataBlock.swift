@@ -91,7 +91,7 @@ extension FileHandle {
         case .cueSheet(let v): write(v.data)
         case .padding(let v):
             #if swift(>=5.2)
-            if #available(OSX 10.15, *) {
+            if #available(OSX 10.15.4, *) {
                 try write(contentsOf: v.data)
             } else {
                 metaflacWrite(contentsOf: v.data)
