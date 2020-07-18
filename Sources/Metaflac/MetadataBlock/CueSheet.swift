@@ -4,7 +4,7 @@ import Foundation
 public struct CueSheet: MetadataBlockData, Equatable {
     
     /// Media catalog number, in ASCII printable characters 0x20-0x7e. In general, the media catalog number may be 0 to 128 bytes long; any unused characters should be right-padded with NUL characters. For CD-DA, this is a thirteen digit number, followed by 115 NUL bytes.
-    public let mediaCatalogNumber: Data
+    public let mediaCatalogNumber: [UInt8]
     
     /// The number of lead-in samples. This field has meaning only for CD-DA cuesheets; for other uses it should be 0. For CD-DA, the lead-in is the TRACK 00 area where the table of contents is stored; more precisely, it is the number of samples from the first sample of the media to the first sample of the first index point of the first track. According to the Red Book, the lead-in must be silence and CD grabbing software does not usually store it; additionally, the lead-in must be at least two seconds but may be longer. For these reasons the lead-in length is stored here so that the absolute position of the first track can be computed. Note that the lead-in stored here is the number of samples up to the first index point of the first track, not necessarily to INDEX 01 of the first track; even the first track may have INDEX 00 data.
     public let numberOfLeadinSamples: UInt64
@@ -13,13 +13,13 @@ public struct CueSheet: MetadataBlockData, Equatable {
     public let compactDisc: Bool
     
     /// The number of tracks. Must be at least 1 (because of the requisite lead-out track). For CD-DA, this number must be no more than 100 (99 regular tracks and one lead-out track).
-    public let trackNumber: UInt8
+    public let trackCount: UInt8
     
     /// One or more tracks. A CUESHEET block is required to have a lead-out track; it is always the last track in the CUESHEET. For CD-DA, the lead-out track number must be 170 as specified by the Red Book, otherwise is must be 255.
     public let tracks: [Track]
     
     public init(mediaCatalogNumber: String, numberOfLeadinSamples: UInt64,
-                compactDisc: Bool, trackNumber: UInt8, tracks: [Track]) {
+                compactDisc: Bool, tracks: [Track]) {
         precondition(mediaCatalogNumber.count <= 128)
         precondition(mediaCatalogNumber.allSatisfy {$0.isASCII && (0x20...0x7e).contains($0.utf8.first!) })
         var tempD = Data(capacity: 128)
@@ -30,62 +30,59 @@ public struct CueSheet: MetadataBlockData, Equatable {
                 tempD.append(0)
             }
         }
-        self.mediaCatalogNumber = tempD
+      self.mediaCatalogNumber = .init()
         self.numberOfLeadinSamples = numberOfLeadinSamples
         self.compactDisc = compactDisc
-        self.trackNumber = trackNumber
+      self.trackCount = numericCast(tracks.count)
         self.tracks = tracks
     }
     
-    public init(_ data: Data) throws {
-        let reader = ByteReader.init(data: data)
-        mediaCatalogNumber = reader.read(128)
-        numberOfLeadinSamples = reader.read(64/8).joined(UInt64.self)
-        let flag = reader.readByte()
-        compactDisc = (flag >> 7) == 1
-        /// Reserved. All bits must be set to zero.
-        reader.skip(258)
-        trackNumber = reader.readByte()
-        var tracks = [Track].init()
-        tracks.reserveCapacity(Int(trackNumber))
-        for _ in 0..<trackNumber {
-            let trackOffsetInSamples = reader.read(64/8).joined(UInt64.self)
-            let trackNumber = reader.readByte()
-            let trackISRC = Array(reader.read(12))
-            let flag = reader.readByte()
-            let isAudio = (flag >> 7) == 0
-            let preEmphasis = (flag & 0b01000000) != 0
-            // Reserved. All bits must be set to zero.
-            reader.skip(13)
-            let numberOfTrackIndexPoints = reader.readByte()
-            var indexes = [Track.Index]()
-            indexes.reserveCapacity(Int(numberOfTrackIndexPoints))
-            for _ in 0..<numberOfTrackIndexPoints {
-                let offsetInSample = reader.read(64/8).joined(UInt64.self)
-                let indexPointNumber = reader.readByte()
-                // Reserved. All bits must be set to zero.
-                reader.skip(3)
-                indexes.append(.init(offsetInSample: offsetInSample, indexPointNumber: indexPointNumber))
-            }
-            tracks.append(.init(trackOffsetInSamples: trackOffsetInSamples, trackNumber: trackNumber, trackISRC: trackISRC, isAudio: isAudio, preEmphasis: preEmphasis, numberOfTrackIndexPoints: numberOfTrackIndexPoints, indexes: indexes))
-        }
-        self.tracks = tracks
+  public init<D>(_ data: D) throws where D : DataProtocol {
+    var reader = ByteReader(data)
+    mediaCatalogNumber = .init(try reader.read(128))
+    numberOfLeadinSamples = try reader.readInteger()
+    let flag = try reader.readByte()
+    compactDisc = (flag >> 7) == 1
+    /// Reserved. All bits must be set to zero.
+    try reader.skip(258)
+    trackCount = try reader.readByte()
+    tracks = try (1...trackCount).map { _ in
+      let trackOffsetInSamples = try reader.readInteger() as UInt64
+      let trackNumber = try reader.readByte()
+      let trackISRC = Array(try reader.read(12))
+      let flag = try reader.readByte()
+      let isAudio = (flag >> 7) == 0
+      let preEmphasis = (flag & 0b01000000) != 0
+      // Reserved. All bits must be set to zero.
+      try reader.skip(13)
+      let numberOfTrackIndexPoints = try reader.readByte()
+
+      let indexes = try (1...numberOfTrackIndexPoints).map { _ -> Track.Index in
+        let offsetInSample = try reader.readInteger() as UInt64
+        let indexPointNumber = try reader.readByte()
+        // Reserved. All bits must be set to zero.
+        try reader.skip(3)
+        return .init(offsetInSample: offsetInSample, indexPointNumber: indexPointNumber)
+      }
+
+      return .init(trackOffsetInSamples: trackOffsetInSamples, trackNumber: trackNumber, trackISRC: trackISRC, isAudio: isAudio, preEmphasis: preEmphasis, numberOfTrackIndexPoints: numberOfTrackIndexPoints, indexes: indexes)
     }
+  }
     
     public var length: Int {
         396 + tracks.reduce(0, {$0 + 36 + $1.indexes.count * 12})
     }
     
     public var data: Data {
-        var result = Data.init(capacity: length)
-        result.append(mediaCatalogNumber)
-        result.append(contentsOf: numberOfLeadinSamples.bytes)
-        let flag: UInt8 = compactDisc ? 0b10000000 : 0
-        result.append(flag)
-        for _ in 1...258 {
-            result.append(0)
-        }
-        result.append(trackNumber)
+      var result = Data(capacity: length)
+      result += mediaCatalogNumber
+      result += repeatElement(0, count: 128-mediaCatalogNumber.count)
+      result += numberOfLeadinSamples.bytes
+      let flag: UInt8 = compactDisc ? 0b10000000 : 0
+      result.append(flag)
+      result += repeatElement(0, count: 258)
+
+        result.append(trackCount)
         for track in tracks {
             result.append(contentsOf: track.trackOffsetInSamples.bytes)
             result.append(track.trackNumber)

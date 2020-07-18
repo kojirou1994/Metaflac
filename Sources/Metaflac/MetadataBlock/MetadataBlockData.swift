@@ -1,16 +1,8 @@
 import Foundation
 
-protocol LosslessDataConvertible {
-
-    init(_ data: Data) throws
-
-    var data: Data { get }
-
-}
-
 protocol MetadataBlockData: /*LosslessDataConvertible, */CustomStringConvertible {
 
-    init(_ data: Data) throws
+    init<D: DataProtocol>(_ data: D) throws
 
     associatedtype Encoded: DataProtocol
 

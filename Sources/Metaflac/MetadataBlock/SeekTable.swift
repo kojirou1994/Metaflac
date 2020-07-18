@@ -34,18 +34,17 @@ public struct SeekTable: MetadataBlockData, Equatable {
         }
     }
     
-    public init(_ data: Data) throws {
+    public init<D>(_ data: D) throws where D : DataProtocol {
         let count = data.count/18
-        var seekpoints = [SeekPoint]()
-        let reader = ByteReader.init(data: data)
-        for _ in 0..<count {
-            let sampleNumber = reader.read(8).joined(UInt64.self)
-            let offset = reader.read(8).joined(UInt64.self)
-            let frameSample = reader.read(2).joined(UInt16.self)
-            seekpoints.append(.init(sampleNumber: sampleNumber, offset: offset, frameSample: frameSample))
+      var reader = ByteReader(data)
+      seekPoints = try (1...count).map { _ in
+          let sampleNumber = try reader.readInteger() as UInt64
+          let offset = try reader.readInteger() as UInt64
+          let frameSample = try reader.readInteger() as UInt16
+          return .init(sampleNumber: sampleNumber, offset: offset, frameSample: frameSample)
         }
-        self.seekPoints = seekpoints
-        try reader.check()
+
+        try reader.checkIfAllBytesUsed()
     }
     
     public init(seekPoints: [SeekPoint]) {
@@ -57,12 +56,13 @@ public struct SeekTable: MetadataBlockData, Equatable {
     }
     
     internal var data: Data {
-        var result = Data.init(capacity: length)
+        var result = Data(capacity: length)
         for seekPoint in seekPoints {
-            result.append(contentsOf: seekPoint.sampleNumber.bytes)
-            result.append(contentsOf: seekPoint.offset.bytes)
-            result.append(contentsOf: seekPoint.frameSample.bytes)
+            result += seekPoint.sampleNumber.bytes
+            result += seekPoint.offset.bytes
+            result += seekPoint.frameSample.bytes
         }
+      assert(result.count == length)
         return result
     }
     

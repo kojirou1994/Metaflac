@@ -4,12 +4,10 @@ import Foundation
 public struct Padding: MetadataBlockData, Equatable {
     
     public var count: Int
-    
-    public init(_ data: Data) {
+
+    public init<D>(_ data: D) throws where D : DataProtocol {
         count = data.count
-        if !data.allSatisfy({$0 == 0}) {
-            print("[warning] padding block has non-zero data")
-        }
+      assert(data.allSatisfy{$0 == 0}, "Padding block has non-zero data")
     }
     
     internal var length: Int {
@@ -21,13 +19,13 @@ public struct Padding: MetadataBlockData, Equatable {
     }
     
     public var description: String {
-        return """
+        """
         zero padding count: \(count) bytes
         """
     }
     
-    public init(count: Int) {
-        self.count = count
-    }
+  public init(count: Int) {
+    self.count = max(count, 0)
+  }
     
 }

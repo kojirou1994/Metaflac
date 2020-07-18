@@ -14,7 +14,7 @@ public struct MetadataBlockHeader: CustomStringConvertible, Equatable {
     /// Length (in bytes) of metadata to follow (does not include the size of the METADATA_BLOCK_HEADER)
     public let length: UInt32
     
-    internal init(data: Data) throws {
+  internal init<D: DataProtocol>(_ data: D) throws {
         let compressed = data.joined(UInt32.self)
         lastMetadataBlockFlag = compressed >> 31 == 1
         let btCode = UInt8.init(truncatingIfNeeded: (compressed << 1) >> 25)
@@ -26,7 +26,7 @@ public struct MetadataBlockHeader: CustomStringConvertible, Equatable {
     }
     
     internal init(lastMetadataBlockFlag: Bool, blockType: BlockType, length: UInt32) {
-        precondition((0...Self.maxBlockLength).contains(length))
+        precondition(length <= Self.maxBlockLength)
         self.lastMetadataBlockFlag = lastMetadataBlockFlag
         self.blockType = blockType
         self.length = length
@@ -41,7 +41,7 @@ public struct MetadataBlockHeader: CustomStringConvertible, Equatable {
     }
     
     public var description: String {
-        return """
+        """
         type: \(blockType.rawValue) (\(blockType))
         is last: \(lastMetadataBlockFlag)
         length: \(length)

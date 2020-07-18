@@ -4,15 +4,15 @@ import Foundation
 public struct Application: MetadataBlockData, Equatable {
     
     /// Registered application ID. (Visit the registration page to register an ID with FLAC.)
-    public let id: Data
+    public let id: [UInt8]
     
-    public let applicationData: Data
+    public let applicationData: [UInt8]
     
-    public init(_ data: Data) throws {
-        let reader = ByteReader.init(data: data)
-        id = Data(reader.read(4))
-        self.applicationData = Data(reader.readToEnd())
-        try reader.check()
+    public init<D>(_ data: D) throws where D : DataProtocol {
+      var reader = ByteReader(data)
+      id = .init(try reader.read(4))
+      self.applicationData = try reader.readAll().map(Array.init) ?? []
+      try reader.checkIfAllBytesUsed()
     }
     
     internal var length: Int {
@@ -21,22 +21,27 @@ public struct Application: MetadataBlockData, Equatable {
     
     internal var data: Data {
         var result = Data(capacity: length)
-        result.append(id)
+        result += id
         result += applicationData
         return result
     }
-    
-    public init(id: Data, applicationData: Data) {
+
+  /// Create Application block
+  /// - Parameters:
+  ///   - id: id's count must be 4
+  ///   - applicationData: binary data
+    public init(id: [UInt8], applicationData: [UInt8]) {
         precondition(id.count == 4)
         self.id = id
         self.applicationData = applicationData
     }
     
     public var description: String {
-        return """
-        id: \(id)
-        application data: \(applicationData)
-        """
+      """
+      id: \(id)
+      idString: \(String(decoding: id, as: UTF8.self))
+      application data: \(applicationData.count) bytes
+      """
     }
     
 }

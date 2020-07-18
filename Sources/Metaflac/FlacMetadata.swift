@@ -7,7 +7,7 @@ public enum MetaflacError: Error {
     case extraBlock(BlockType)
     case invalidBlockType(code: UInt8)
     case unSupportedBlockType(BlockType)
-    case extraDataInMetadataBlock(data: Data)
+    case extraDataInMetadataBlock(data: [UInt8])
     case invalidPictureType(code: UInt32)
     case exceedMaxBlockLength
 }
@@ -74,7 +74,7 @@ public struct FlacMetadata {
     private static func read(input: Input) throws -> MetadataBlocks {
         switch input {
         case .binary(let data):
-            return try readBlocks(handle: ByteReader(data: data))
+            return try readBlocks(handle: ByteReader(data))
         case .file(let url):
             return try autoreleasepool {
                 try readBlocks(handle: FileHandle(forReadingFrom: url))
@@ -213,7 +213,7 @@ public struct FlacMetadata {
                         try tempFileHandle.writeLastPadding(count: tempFilePaddingLength)
                     }
                     // frames
-                    while case let buffer = sourceFileHandle.read(Self.maxBufferLength),
+                    while case let buffer = try sourceFileHandle.read(Self.maxBufferLength),
                         !buffer.isEmpty {
                         tempFileHandle.write(buffer)
                     }

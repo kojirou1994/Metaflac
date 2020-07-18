@@ -97,11 +97,11 @@ public struct Picture: MetadataBlockData, Equatable {
     
     public let numberOfColors: UInt32
     
-    public let pictureData: Data
+    public let pictureData: [UInt8]
     
     public init(pictureType: PictureType, mimeType: String, description: String,
                 width: UInt32, height: UInt32, colorDepth: UInt32, numberOfColors: UInt32,
-                pictureData: Data) throws {
+                pictureData: [UInt8]) throws {
         self.pictureType = pictureType
         self.mimeType = mimeType
         self.descriptionString = description
@@ -134,24 +134,24 @@ public struct Picture: MetadataBlockData, Equatable {
         self.pictureData = pictureData
     }
     */
-    public init(_ data: Data) throws {
-        let reader = ByteReader(data: data)
-        let ptValue = reader.read(4).joined(UInt32.self)
-        guard let pictureType = PictureType.init(rawValue: ptValue)  else {
+    public init<D>(_ data: D) throws where D : DataProtocol {
+      var reader = ByteReader(data)
+        let ptValue = try reader.readInteger() as UInt32
+        guard let pictureType = PictureType(rawValue: ptValue) else {
             throw MetaflacError.invalidPictureType(code: ptValue)
         }
         self.pictureType = pictureType
-        let mimeTypeLength = reader.read(4).joined(UInt32.self)
-        mimeType = String.init(decoding: reader.read(Int(mimeTypeLength)), as: UTF8.self)
-        let descriptionLength = reader.read(4).joined(UInt32.self)
-        descriptionString = String.init(decoding: reader.read(Int(descriptionLength)), as: UTF8.self)
-        width = reader.read(4).joined(UInt32.self)
-        height = reader.read(4).joined(UInt32.self)
-        colorDepth = reader.read(4).joined(UInt32.self)
-        numberOfColors = reader.read(4).joined(UInt32.self)
-        let pictureDataLength = reader.read(4).joined(UInt32.self)
-        pictureData = reader.read(Int(pictureDataLength))
-        try reader.check()
+      let mimeTypeLength = try reader.readInteger() as UInt32
+      mimeType = try reader.readString(Int(mimeTypeLength))
+      let descriptionLength = try reader.readInteger() as UInt32
+      descriptionString = try reader.readString(Int(descriptionLength))
+      width = try reader.readInteger() as UInt32
+      height = try reader.readInteger() as UInt32
+      colorDepth = try reader.readInteger() as UInt32
+      numberOfColors = try reader.readInteger() as UInt32
+      let pictureDataLength = try reader.readInteger() as UInt32
+      pictureData = .init(try reader.read(Int(pictureDataLength)))
+      try reader.checkIfAllBytesUsed()
     }
 
     internal var length: Int {
@@ -160,24 +160,24 @@ public struct Picture: MetadataBlockData, Equatable {
     
     internal var data: Data {
 //        let capacity = length - pictureData.count
-        var result = Data.init(capacity: length)
-        result.append(contentsOf: pictureType.rawValue.bytes)
-        result.append(contentsOf: UInt32(mimeType.utf8.count).bytes)
-        result.append(contentsOf: Data(mimeType.utf8))
-        result.append(contentsOf: UInt32(descriptionString.utf8.count).bytes)
-        result.append(contentsOf: Data(descriptionString.utf8))
-        result.append(contentsOf: width.bytes)
-        result.append(contentsOf: height.bytes)
-        result.append(contentsOf: colorDepth.bytes)
-        result.append(contentsOf: numberOfColors.bytes)
-        result.append(contentsOf: UInt32(pictureData.count).bytes)
-//        precondition(capacity == result.count)
+        var result = Data(capacity: length)
+        result += pictureType.rawValue.bytes
+        result += UInt32(mimeType.utf8.count).bytes
+        result += Data(mimeType.utf8)
+        result += UInt32(descriptionString.utf8.count).bytes
+        result += Data(descriptionString.utf8)
+        result += width.bytes
+        result += height.bytes
+        result += colorDepth.bytes
+        result += numberOfColors.bytes
+        result += UInt32(pictureData.count).bytes
         result += pictureData
+      assert(result.count == length)
         return result
     }
     
     public var description: String {
-        return """
+        """
         type: \(pictureType.rawValue) \(pictureType)
         MIME type: \(mimeType)
         description: \(descriptionString)

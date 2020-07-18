@@ -2,19 +2,20 @@ import Foundation
 
 extension FlacMetadata {
 
-    public typealias BlockReadCallback = (_ header: MetadataBlockHeader, _ blockData: Data) throws -> Void
+    public typealias BlockReadCallback<T> = (_ header: MetadataBlockHeader, _ blockData: T) throws -> Void
 
     public struct FlacMetadataReaderResult {
         public let streamInfo: StreamInfo
         public let offset: Int
     }
 
-    public static func read<H: ByteReaderProtocol>(handle: H, callback: BlockReadCallback) throws -> FlacMetadataReaderResult {
-        guard handle.read(4).elementsEqual(FlacMetadata.flacHeader) else {
+    public static func read<H: ByteRegionReaderProtocol>(handle: H, callback: BlockReadCallback<H.ByteRegion>) throws -> FlacMetadataReaderResult where H.ByteRegion.Index == Int {
+      var handle = handle
+        guard try handle.readInteger(endian: .big, as: UInt32.self) == 0x664c6143 else {
             throw MetaflacError.noFlacHeader
         }
 
-        let streamInfoBlockHeader = try MetadataBlockHeader(data: handle.read(4))
+        let streamInfoBlockHeader = try MetadataBlockHeader(handle.read(4))
         guard streamInfoBlockHeader.blockType == .streamInfo else {
             throw MetaflacError.noStreamInfo
         }
@@ -22,21 +23,21 @@ extension FlacMetadata {
 
         if streamInfoBlockHeader.lastMetadataBlockFlag {
             // no other blocks
-            return .init(streamInfo: streamInfo, offset: handle.currentIndex)
+            return .init(streamInfo: streamInfo, offset: handle.readerOffset)
         }
 
         var lastMeta = false
         while !lastMeta {
-            let blockHeader = try MetadataBlockHeader(data: handle.read(4))
+            let blockHeader = try MetadataBlockHeader(handle.read(4))
             lastMeta = blockHeader.lastMetadataBlockFlag
-            let blockData = handle.read(Int(blockHeader.length))
+            let blockData = try handle.read(Int(blockHeader.length))
             try callback(blockHeader, blockData)
         }
 
-        return .init(streamInfo: streamInfo, offset: handle.currentIndex)
+        return .init(streamInfo: streamInfo, offset: handle.readerOffset)
     }
 
-    internal static func readBlocks<H: ByteReaderProtocol>(handle: H) throws -> MetadataBlocks {
+    internal static func readBlocks<H: ByteRegionReaderProtocol>(handle: H) throws -> MetadataBlocks where H.ByteRegion.Index == Int {
 
         var otherBlocks = [MetadataBlock]()
 
@@ -56,7 +57,7 @@ extension FlacMetadata {
                 block = .picture(try .init(blockData))
                 otherBlocks.append(block)
             case .padding:
-                otherBlocks.append(.padding(.init(blockData)))
+                otherBlocks.append(.padding(try .init(blockData)))
             case .seekTable:
                 if otherBlocks.contains(where: {$0.blockType == .seekTable}) {
                     throw MetaflacError.extraBlock(.seekTable)
