@@ -1,12 +1,12 @@
-public enum BlockType: UInt8, CaseIterable, CustomStringConvertible {
+public enum FlacMetadataType: UInt8, CaseIterable, CustomStringConvertible {
   
   case streamInfo = 0
-  case padding
-  case application
-  case seekTable
-  case vorbisComment
-  case cueSheet
-  case picture
+  case padding = 1
+  case application = 2
+  case seekTable = 3
+  case vorbisComment = 4
+  case cueSheet = 5
+  case picture = 6
   case invalid = 127
   
   public var description: String {
