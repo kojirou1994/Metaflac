@@ -4,7 +4,7 @@ extension FlacMetadataBlock {
   /// This block is for storing pictures associated with the file, most commonly cover art from CDs. There may be more than one PICTURE block in a file. The picture format is similar to the APIC frame in ID3v2. The PICTURE block has a type, MIME type, and UTF-8 description like ID3v2, and supports external linking via URL (though this is discouraged). The differences are that there is no uniqueness constraint on the description field, and the MIME type is mandatory. The FLAC PICTURE block also includes the resolution, color depth, and palette size so that the client can search for a suitable picture without having to scan them all.
   public struct Picture: FlacMetadataBlockProtocol, Equatable {
 
-    public enum PictureType: UInt32, CustomStringConvertible {
+    public enum PictureType: UInt32 {
       case other = 0
       case fileIcon
       case otherFileIcon
@@ -149,8 +149,8 @@ extension FlacMetadataBlock {
   }
 }
 
-public extension FlacMetadataBlock.Picture.PictureType: CustomStringConvertible {
-  var description: String {
+extension FlacMetadataBlock.Picture.PictureType: CustomStringConvertible {
+  public var description: String {
     switch self {
     case .other:
       return "Other"
