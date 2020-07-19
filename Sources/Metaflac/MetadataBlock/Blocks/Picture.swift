@@ -35,53 +35,6 @@ extension FlacMetadataBlock {
           return false
         }
       }
-
-      public var description: String {
-        switch self {
-        case .other:
-          return "Other"
-        case .fileIcon:
-          return "32x32 pixels 'file icon' (PNG only)"
-        case .otherFileIcon:
-          return "Other file icon"
-        case .coverFront:
-          return "Cover (front)"
-        case .coverBack:
-          return "Cover (back)"
-        case .leafletPage:
-          return "Leaflet page"
-        case .media:
-          return "Media (e.g. label side of CD)"
-        case .leadArtist:
-          return "Lead artist/lead performer/soloist"
-        case .artist:
-          return "Artist/performer"
-        case .conductor:
-          return "Conductor"
-        case .band:
-          return "Band/Orchestra"
-        case .composer:
-          return "Composer"
-        case .lyricist:
-          return "Lyricist/text writer"
-        case .recordingLocation:
-          return "Recording Location"
-        case .duringRecording:
-          return "During recording"
-        case .duringPerformance:
-          return "During performance"
-        case .movieScreenCapture:
-          return "Movie/video screen capture"
-        case .aBrightColouredFish:
-          return "A bright coloured fish"
-        case .illustration:
-          return "Illustration"
-        case .bandLogotype:
-          return "Band/artist logotype"
-        case .publisherLogotype:
-          return "Publisher/Studio logotype"
-        }
-      }
     }
 
     public var pictureType: PictureType
@@ -182,16 +135,65 @@ extension FlacMetadataBlock {
 
     public var description: String {
       """
-    type: \(pictureType.rawValue) \(pictureType)
-    MIME type: \(mimeType)
-    description: \(descriptionString)
-    width: \(width)
-    height: \(height)
-    colorDepth: \(colorDepth)
-    colors: \(numberOfColors)
-    data length: \(pictureData.count)
-    """
+      type: \(pictureType.rawValue) \(pictureType)
+      MIME type: \(mimeType)
+      description: \(descriptionString)
+      width: \(width)
+      height: \(height)
+      colorDepth: \(colorDepth)
+      colors: \(numberOfColors)
+      data length: \(pictureData.count)
+      """
     }
 
+  }
+}
+
+public extension FlacMetadataBlock.Picture.PictureType: CustomStringConvertible {
+  var description: String {
+    switch self {
+    case .other:
+      return "Other"
+    case .fileIcon:
+      return "32x32 pixels 'file icon' (PNG only)"
+    case .otherFileIcon:
+      return "Other file icon"
+    case .coverFront:
+      return "Cover (front)"
+    case .coverBack:
+      return "Cover (back)"
+    case .leafletPage:
+      return "Leaflet page"
+    case .media:
+      return "Media (e.g. label side of CD)"
+    case .leadArtist:
+      return "Lead artist/lead performer/soloist"
+    case .artist:
+      return "Artist/performer"
+    case .conductor:
+      return "Conductor"
+    case .band:
+      return "Band/Orchestra"
+    case .composer:
+      return "Composer"
+    case .lyricist:
+      return "Lyricist/text writer"
+    case .recordingLocation:
+      return "Recording Location"
+    case .duringRecording:
+      return "During recording"
+    case .duringPerformance:
+      return "During performance"
+    case .movieScreenCapture:
+      return "Movie/video screen capture"
+    case .aBrightColouredFish:
+      return "A bright coloured fish"
+    case .illustration:
+      return "Illustration"
+    case .bandLogotype:
+      return "Band/artist logotype"
+    case .publisherLogotype:
+      return "Publisher/Studio logotype"
+    }
   }
 }

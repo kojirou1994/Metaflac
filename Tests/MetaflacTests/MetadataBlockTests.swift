@@ -31,7 +31,7 @@ final class MetadataBlockTests: XCTestCase {
     assertDecodedEqual(
       FlacMetadataBlock.StreamInfo(
         minimumBlockSize: 1024, maximumBlockSize: 1024, minimumFrameSize: 1024, maximumFrameSize: 1024,
-        sampleRate: 44100, numberOfChannels: 2, bitsPerSampe: 16, totalSamples: 1_000_000,
+        sampleRate: 44100, channelCount: 2, bitsPerSample: 16, sampleCount: 1_000_000,
         md5Signature: .init(repeating: 0, count: 16)
       )
     )
