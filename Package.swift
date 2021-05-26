@@ -12,14 +12,14 @@ let package = Package(
   ],
   dependencies: [
     .package(url: "https://github.com/kojirou1994/URLFileManager.git", from: "0.0.1"),
-    .package(url: "https://github.com/kojirou1994/Kwift.git", .upToNextMinor(from: "0.7.1"))
+    .package(url: "https://github.com/kojirou1994/Kwift.git", .upToNextMinor(from: "0.8.0")),
   ],
   targets: [
     .target(
       name: "Metaflac",
       dependencies: [
-        "URLFileManager",
-        .product(name: "KwiftUtility", package: "Kwift")
+        .product(name: "URLFileManager", package: "URLFileManager"),
+        .product(name: "KwiftUtility", package: "Kwift"),
       ]),
     .target(
       name: "Metaflac-Demo",
